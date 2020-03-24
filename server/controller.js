@@ -1202,7 +1202,7 @@ router.get('/get_insumos_utilizados_consulta_list', verify_token, (request, res,
 		});
 });
 
-router.post('/insert_product', verify_token, (request, res, next) => {
+router.post('/insert_producto', verify_token, (request, res, next) => {
     	var records = [
 		    [
 		    	request.body.tradename_id,
@@ -1237,7 +1237,8 @@ router.post('/insert_product', verify_token, (request, res, next) => {
 		    }else{
 		    	return res.status(200).json({
                     title: 'Operacion realizada con exito',
-                    message: 'La operacion fue realizada de manera satisfactoria'
+                    message: 'La operacion fue realizada de manera satisfactoria',
+                    result
                 })
 		    } 
 		});
@@ -1545,7 +1546,10 @@ router.post('/insert_tradename', verify_token, (request, res, next) => {
                 })
       } else {
         if (result.length > 0) {
-          reply(-2);
+            return res.status(500).json({
+                title: 'Error',
+                message: 'El nombre comercial ya existe'
+            })
         } else {
           var records = [
             [
@@ -1957,7 +1961,10 @@ router.post('/insert_concentration', verify_token, (request, res, next) => {
                 })
 	      } else {
 	        if (result.length > 0) {
-	           reply(-2);
+	           return res.status(500).json({
+                   title: 'Error',
+                   message: 'Existe un item duplicado'
+               })
 	        } else {
 	          var records = [
 				    [
@@ -1987,7 +1994,8 @@ router.post('/insert_concentration', verify_token, (request, res, next) => {
 				    }else{
 				    	return res.status(200).json({
                     title: 'Operacion realizada con exito',
-                    message: 'La operacion fue realizada de manera satisfactoria'
+                    message: 'La operacion fue realizada de manera satisfactoria',
+                    result
                 })
 				    } 
 				});
