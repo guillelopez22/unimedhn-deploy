@@ -403,6 +403,20 @@ router.post('/request_password_change_first_login', (req, res, next) => {
 
 //########################################################################
 //INSTITUCIONES ##########################################################
+router.get('/get_institutions', verify_token, (req, res, next) => {
+    let query_string = "";
+    query_string = query_string + " SELECT * FROM instituciones";
+    con.query(query_string, function (err, result, fields) {
+        if (err) {
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            return res.status(200).json(result)
+        }
+    });
+})
 
 router.get('/get_instituciones', verify_token, (req, res, next) => {
     var count_values = [];
@@ -641,7 +655,7 @@ router.get('/email_exists', verify_token, (req, res, next) => {
 })
 
 router.post('/insert_doctor', verify_token, (request, res, next) => {
-    console.log(request.body);
+    console.log(request.body, 'asdasdasd');
 
     var query_string = "";
     query_string = query_string + " INSERT INTO users (username,password,user_email,creation_date,profile_id,active,role)";
