@@ -1112,6 +1112,62 @@ router.get('/get_inventario_insumo', verify_token, (request, res, next) => {
     });
 })
 
+router.post('/insert_cartera_medicamento', verify_token, (request, res, next) => {
+    let records = [
+        [
+            request.body.cartera_id,
+            request.body.medicamento_id,
+            request.body.cantidad,
+            request.body.product_id,
+        ],
+    ];
+    let query_string = "";
+    query_string = query_string + " INSERT INTO cartera_medicamentos";
+    query_string = query_string + " (cartera_id,";
+    query_string = query_string + " medicamento_id,";
+    query_string = query_string + " cantidad,";
+    query_string = query_string + " product_id)";
+    query_string = query_string + " VALUES ?";
+
+    con.query(query_string, [records], function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            let query_string2 = "";
+            query_string2 = query_string2 + " SELECT * FROM inventario_medicamentos";
+            query_string2 = query_string2 + " WHERE medicamento_id = " + request.body.medicamento_id;
+            query_string2 = query_string2 + " ORDER BY vencimiento";
+            con.query(query_string, function (err2, result2, fields) {
+                if (err2) {
+                    console.log(err2);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err2.message
+                    })
+                } else {
+                    query_string3 = query_string3 + " UPDATE inventario_medicamentos";
+                        query_string3 = query_string3 + " SET en_cartera=" + (Number(result2[0].en_cartera) - Number(request.body.cantidad)) + ",";
+                        query_string3 = query_string3 + " saldo_inventario=" + (Number(result2[0].saldo_inventario) - Number(request.body.cantidad)) + ",";
+                        query_string3 = query_string3 + " salida_inventario=" + (Number(result2[0].salida_inventario) + Number(request.body.cantidad));
+                        query_string3 = query_string3 + " WHERE inventario_id=" + result[0].inventario_id + ";";
+                        query_string3 = query_string3 + " UPDATE cartera_medicamentos";
+                        query_string3 = query_string3 + " SET cantidad=" + (Number(result[0].cantidad) - Number(request.body.cantidad));
+                        query_string3 = query_string3 + " WHERE cartera_medicamentos_id=" + request.body.cartera_medicamentos_id + ";";
+                }
+            });
+            return res.status(200).json({
+                title: 'Insumo ingresado exitosamente',
+                message: 'El insumo fue creado de manera satisfactoria',
+                insumo_id: result.insertId
+            })
+        }
+    });
+})
+
 router.post('/insert_medicamento_utilizado', verify_token, (request, res, next) => {
     var query_string = "";
     query_string = query_string + " SELECT * FROM cartera_medicamentos";
@@ -1285,7 +1341,7 @@ router.post('/insert_inventario_medicamento', verify_token, (request, res, next)
         [
             request.body.costo_compra,
             request.body.cantidad_dosis,
-            (parseFloat(request.body.costo_compra)/parseFloat(request.body.cantidad_dosis)),
+            (parseFloat(request.body.costo_compra) / parseFloat(request.body.cantidad_dosis)),
             request.body.entrada_inventario,
             0,
             request.body.entrada_inventario,
@@ -1336,7 +1392,7 @@ router.post('/insert_inventario_insumos', verify_token, (request, res, next) => 
     let records = [
         [
             request.body.costo_compra,
-            (parseFloat(request.body.costo_compra)/parseFloat(request.body.cantidad)),
+            (parseFloat(request.body.costo_compra) / parseFloat(request.body.cantidad)),
             request.body.cantidad,
             request.body.entrada_inventario,
             0,
