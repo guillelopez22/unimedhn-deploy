@@ -1046,13 +1046,15 @@ router.post('/insert_insumo', verify_token, (request, res, next) => {
             request.body.tipo_insumo,
             request.body.nombre_comercial,
             request.body.presentacion,
+            request.body.product_id,
         ],
     ];
     let query_string = "";
     query_string = query_string + " INSERT INTO insumos";
     query_string = query_string + " (tipo_insumo,";
     query_string = query_string + " nombre_comercial,";
-    query_string = query_string + " presentacion)";
+    query_string = query_string + " presentacion,";
+    query_string = query_string + " product_id)";
     query_string = query_string + " VALUES ?";
 
     con.query(query_string, [records], function (err, result, fields) {
@@ -1118,7 +1120,7 @@ router.post('/insert_cartera_medicamento', verify_token, (request, res, next) =>
             request.body.cartera_id,
             request.body.medicamento_id,
             request.body.cantidad,
-            request.body.product_id,
+            request.body.product_id
         ],
     ];
     let query_string = "";
@@ -1128,10 +1130,10 @@ router.post('/insert_cartera_medicamento', verify_token, (request, res, next) =>
     query_string = query_string + " cantidad,";
     query_string = query_string + " product_id)";
     query_string = query_string + " VALUES ?";
-
+    
     con.query(query_string, [records], function (err, result, fields) {
         if (err) {
-            console.log(err);
+            console.log(err.message);
             return res.status(500).json({
                 title: 'Error',
                 message: err.message
@@ -1150,20 +1152,27 @@ router.post('/insert_cartera_medicamento', verify_token, (request, res, next) =>
                     })
                 } else {
                     query_string3 = query_string3 + " UPDATE inventario_medicamentos";
-                        query_string3 = query_string3 + " SET en_cartera=" + (Number(result2[0].en_cartera) - Number(request.body.cantidad)) + ",";
-                        query_string3 = query_string3 + " saldo_inventario=" + (Number(result2[0].saldo_inventario) - Number(request.body.cantidad)) + ",";
-                        query_string3 = query_string3 + " salida_inventario=" + (Number(result2[0].salida_inventario) + Number(request.body.cantidad));
-                        query_string3 = query_string3 + " WHERE inventario_id=" + result[0].inventario_id + ";";
-                        query_string3 = query_string3 + " UPDATE cartera_medicamentos";
-                        query_string3 = query_string3 + " SET cantidad=" + (Number(result[0].cantidad) - Number(request.body.cantidad));
-                        query_string3 = query_string3 + " WHERE cartera_medicamentos_id=" + request.body.cartera_medicamentos_id + ";";
+                    query_string3 = query_string3 + " SET en_cartera=" + (Number(result2[0].en_cartera) - Number(request.body.cantidad)) + ",";
+                    query_string3 = query_string3 + " saldo_inventario=" + (Number(result2[0].saldo_inventario) - Number(request.body.cantidad)) + ",";
+                    query_string3 = query_string3 + " salida_inventario=" + (Number(result2[0].salida_inventario) + Number(request.body.cantidad));
+                    query_string3 = query_string3 + " WHERE inventario_id=" + result2[0].inventario_id + ";";
+                    con.query(query_string, function (err3, result3, fields) {
+                        if (err3) {
+                            console.log(err3);
+                            return res.status(500).json({
+                                title: 'Error',
+                                message: err3.message
+                            })
+                        } else {
+                            return res.status(200).json({
+                                title: 'Medicamento ingresado en cartera exitosamente',
+                                message: 'El medicamento fue insertado de manera satisfactoria',
+                                insumo_id: result.insertId
+                            })
+                        }
+                    })
                 }
             });
-            return res.status(200).json({
-                title: 'Insumo ingresado exitosamente',
-                message: 'El insumo fue creado de manera satisfactoria',
-                insumo_id: result.insertId
-            })
         }
     });
 })
@@ -1345,13 +1354,10 @@ router.post('/insert_inventario_medicamento', verify_token, (request, res, next)
             request.body.entrada_inventario,
             0,
             request.body.entrada_inventario,
-            request.body.vencimiento,
             request.body.numero_inventario,
             0,
             request.body.entrada_inventario,
-            request.body.comentarios,
             request.body.medicamento_id,
-            request.body.fecha_compra,
         ],
     ];
     let query_string = "";
@@ -1362,13 +1368,10 @@ router.post('/insert_inventario_medicamento', verify_token, (request, res, next)
     query_string = query_string + " entrada_inventario,";
     query_string = query_string + " salida_inventario,";
     query_string = query_string + " saldo_inventario,";
-    query_string = query_string + " vencimiento,";
     query_string = query_string + " numero_inventario,";
     query_string = query_string + " en_cartera,";
     query_string = query_string + " sin_cartera,";
-    query_string = query_string + " comentarios,";
-    query_string = query_string + " medicamento_id,";
-    query_string = query_string + " fecha_compra)";
+    query_string = query_string + " medicamento_id)";
     query_string = query_string + " VALUES ?";
 
     con.query(query_string, [records], function (err, result, fields) {
@@ -1397,13 +1400,10 @@ router.post('/insert_inventario_insumos', verify_token, (request, res, next) => 
             request.body.entrada_inventario,
             0,
             request.body.entrada_inventario,
-            request.body.vencimiento,
             request.body.numero_inventario,
             0,
             request.body.entrada_inventario,
-            request.body.comentarios,
-            request.body.medicamento_id,
-            request.body.fecha_compra,
+            request.body.insumo_id,
         ],
     ];
     let query_string = "";
@@ -1414,13 +1414,10 @@ router.post('/insert_inventario_insumos', verify_token, (request, res, next) => 
     query_string = query_string + " entrada_inventario,";
     query_string = query_string + " salida_inventario,";
     query_string = query_string + " saldo_inventario,";
-    query_string = query_string + " vencimiento,";
     query_string = query_string + " numero_inventario,";
     query_string = query_string + " en_cartera,";
     query_string = query_string + " sin_cartera,";
-    query_string = query_string + " comentarios,";
-    query_string = query_string + " insumo_id,";
-    query_string = query_string + " fecha_compra)";
+    query_string = query_string + " insumo_id)";
     query_string = query_string + " VALUES ?";
 
     con.query(query_string, [records], function (err, result, fields) {
@@ -2548,6 +2545,41 @@ router.delete('/delete_batch', verify_token, (request, res, next) => {
                     }
                 });
             }
+        }
+    });
+});
+
+router.get('/get_products', verify_token, (request, res, next) => {
+    let query_string = "";
+    query_string = query_string + " SELECT * FROM products";
+    query_string = query_string + " INNER JOIN medicamentos ON products.product_id = medicamentos.product_id";
+    con.query(query_string, function (err1, result1, fields) {
+        if (err1) {
+            console.log(err1);
+            return res.status(500).json({
+                title: 'Error',
+                message: err1.message
+            })
+        } else {
+            let query_string2 = "";
+            query_string2 = query_string2 + " SELECT * FROM products";
+            query_string2 = query_string2 + " INNER JOIN insumos ON products.product_id = insumos.product_id";
+            con.query(query_string2, function (err2, result2, fields) {
+                if (err2) {
+                    console.log(err2);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err2.message
+                    })
+                } else {
+                    return res.status(200).json(
+                        {
+                            medicamentos: result1,
+                            insumos: result2
+                        }
+                    )
+                }
+            });
         }
     });
 });
