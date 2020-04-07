@@ -405,7 +405,8 @@ router.post('/request_password_change_first_login', (req, res, next) => {
 //INSTITUCIONES ##########################################################
 router.get('/get_institutions', verify_token, (req, res, next) => {
     let query_string = "";
-    query_string = query_string + " SELECT * FROM instituciones";
+    query_string = query_string + " SELECT instituciones.*, COUNT(patients.patient_id) as student_count FROM instituciones";
+    query_string = query_string + " INNER JOIN patients ON patients.institution_id = instituciones.id";
     con.query(query_string, function (err, result, fields) {
         if (err) {
             return res.status(500).json({
@@ -414,6 +415,54 @@ router.get('/get_institutions', verify_token, (req, res, next) => {
             })
         } else {
             return res.status(200).json(result)
+        }
+    });
+})
+
+router.get('/get_institution', verify_token, (req, res, next) => {
+    let query_string = "";
+    query_string = query_string + " SELECT * FROM instituciones";
+    query_string = query_string + " WHERE instituciones.id =" + req.query.institution_id;
+    con.query(query_string, function (err, result1, fields) {
+        if (err) {
+            console.log(err);
+
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            let query_string2 = "";
+            query_string2 = query_string2 + " SELECT * FROM patients";
+            query_string2 = query_string2 + " WHERE patients.institution_id=" + req.query.institution_id;
+            con.query(query_string2, function (err, result2, fields) {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err.message
+                    })
+                } else {
+                    let query_string3 = "";
+                    query_string3 = query_string3 + " SELECT * FROM doctors";
+                    query_string3 = query_string3 + " WHERE doctors.institution_id =" + req.query.institution_id;
+                    con.query(query_string3, function (err, result3, fields) {
+                        if (err) {
+                            console.log(err);
+                            return res.status(500).json({
+                                title: 'Error',
+                                message: err.message
+                            })
+                        } else {
+                            return res.status(200).json({
+                                institution: result1,
+                                patients: result2,
+                                doctors: result3
+                            })
+                        }
+                    })
+                }
+            })
         }
     });
 })
@@ -905,9 +954,23 @@ router.post('/insert_patient', verify_token, (request, res, next) => {
                 message: err.message
             })
         } else {
-            return res.status(200).json({
-                title: 'Alumno ingresado exitosamente',
-                message: 'El alumno fue creado de manera satisfactoria'
+            let query_string2 = "";
+            query_string2 = query_string2 + " UPDATE instituciones";
+            query_string2 = query_string2 + " SET student_count= (SELECT COUNT(patients.patient_id) from patients where patients.institution_id = " + request.body.institution_id + ")";
+            query_string2 = query_string2 + " WHERE id = " + request.body.institution_id;
+            con.query(query_string2, function (err, result, fields) {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err.message
+                    })
+                } else {
+                    return res.status(200).json({
+                        title: 'Alumno ingresado exitosamente',
+                        message: 'El alumno fue creado de manera satisfactoria'
+                    })
+                }
             })
         }
     });
@@ -1130,7 +1193,7 @@ router.post('/insert_cartera_medicamento', verify_token, (request, res, next) =>
     query_string = query_string + " cantidad,";
     query_string = query_string + " product_id)";
     query_string = query_string + " VALUES ?";
-    
+
     con.query(query_string, [records], function (err, result, fields) {
         if (err) {
             console.log(err.message);
@@ -1451,10 +1514,7 @@ router.get('/get_medicamentos_utilizados_consulta_list', verify_token, (request,
                 message: err.message
             })
         } else {
-            return res.status(200).json({
-                title: 'Operacion realizada con exito',
-                message: 'La operacion fue realizada de manera satisfactoria'
-            })
+            return res.status(200).json(result)
         }
     });
 });
@@ -1491,7 +1551,8 @@ router.post('/insert_producto', verify_token, (request, res, next) => {
             request.body.presentation_measure_unit_id,
             request.body.aus_quantity,
             request.body.aus_measure_unit_id,
-            request.body.description
+            request.body.pum,
+            request.body.pum_measure_unit_id,
         ],
     ];
     var query_string = "";
@@ -1503,7 +1564,8 @@ router.post('/insert_producto', verify_token, (request, res, next) => {
     query_string = query_string + " presentation_measure_unit_id,";
     query_string = query_string + " aus_quantity,";
     query_string = query_string + " aus_measure_unit_id,";
-    query_string = query_string + " description)";
+    query_string = query_string + " pum,";
+    query_string = query_string + " pum_measure_unit_id)";
     query_string = query_string + " VALUES ?";
 
     con.query(query_string, [records], function (err, result, fields) {
@@ -1588,8 +1650,98 @@ router.delete('/delete_producto', verify_token, (request, res, next) => {
     });
 });
 
+router.get('/get_inventory_medicamento', verify_token, (request, res, next) => {
+    let query_string = "";
+    query_string = query_string + " SELECT medicamentos.*, inventory.saldo_inventario, batch_product.expiration_date from medicamentos";
+    query_string = query_string + " INNER JOIN batch_product ON batch_product.product_id = medicamentos.product_id";
+    query_string = query_string + " INNER JOIN inventory ON inventory.batch_product_id = batch_product.id";
+    query_string = query_string + " WHERE medicamentos.nombre LIKE '%" + request.query.active_principle + "%'";
+    query_string = query_string + " AND medicamentos.presentacion LIKE '%" + request.query.presentacion + "%'";
+    query_string = query_string + " AND inventory.saldo_inventario > 0 ";
+    query_string = query_string + " ORDER BY batch_product.expiration_date ASC";
+    con.query(query_string, function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            return res.status(200).json(result);
+        }
+    });
+});
+
+router.get('/get_medicamento_inventory', verify_token, (request, res, next) => {
+    let query_string = "";
+    query_string = query_string + " SELECT medicamentos.*, products.aus_quantity, products.presentation_quantity, inventory.saldo_inventario, batch_product.id as batch_product_id, batch_product.expiration_date from medicamentos";
+    query_string = query_string + " INNER JOIN batch_product ON batch_product.product_id = medicamentos.product_id";
+    query_string = query_string + " INNER JOIN products ON products.product_id = medicamentos.product_id";
+    query_string = query_string + " INNER JOIN inventory ON inventory.batch_product_id = batch_product.id";
+    // query_string = query_string + " WHERE medicamentos.nombre LIKE '%" + request.query.active_principle + "%'";
+    // query_string = query_string + " AND medicamentos.presentacion LIKE '%" + request.query.presentacion + "%'";
+    query_string = query_string + " WHERE inventory.saldo_inventario > 0 ";
+    query_string = query_string + " ORDER BY batch_product.expiration_date ASC";
+    con.query(query_string, function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            return res.status(200).json(result);
+        }
+    });
+});
+
+router.get('/get_inventory_insumo_first', verify_token, (request, res, next) => {
+    let query_string = "";
+    query_string = query_string + " SELECT insumos.*, inventory.saldo_inventario, batch_product.expiration_date from insumos";
+    query_string = query_string + " INNER JOIN batch_product ON batch_product.product_id = insumos.product_id";
+    query_string = query_string + " INNER JOIN inventory ON inventory.batch_product_id = batch_product.id";
+    query_string = query_string + " WHERE insumos.tipo_insumo LIKE '%" + request.query.tipo_insumo + "%'";
+    query_string = query_string + " AND insumos.presentacion LIKE '%" + request.query.presentacion + "%'";
+    query_string = query_string + " AND inventory.saldo_inventario > 0 ";
+    query_string = query_string + " ORDER BY batch_product.expiration_date ASC";
+    con.query(query_string, function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            return res.status(200).json(result[0]);
+        }
+    });
+});
+
+router.get('/get_insumo_inventory', verify_token, (request, res, next) => {
+    let query_string = "";
+    query_string = query_string + " SELECT insumos.*, products.aus_quantity, products.presentation_quantity, inventory.saldo_inventario, batch_product.id as batch_product_id, batch_product.expiration_date from insumos";
+    query_string = query_string + " INNER JOIN batch_product ON batch_product.product_id = insumos.product_id";
+    query_string = query_string + " INNER JOIN products ON products.product_id = insumos.product_id";
+    query_string = query_string + " INNER JOIN inventory ON inventory.batch_product_id = batch_product.id";
+    // query_string = query_string + " WHERE medicamentos.nombre LIKE '%" + request.query.active_principle + "%'";
+    // query_string = query_string + " AND medicamentos.presentacion LIKE '%" + request.query.presentacion + "%'";
+    query_string = query_string + " WHERE inventory.saldo_inventario > 0 ";
+    query_string = query_string + " ORDER BY batch_product.expiration_date ASC";
+    con.query(query_string, function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            return res.status(200).json(result);
+        }
+    });
+});
+
 router.get('/get_active_principles_list', verify_token, (request, res, next) => {
-    var query_string = "";
+    let query_string = "";
     query_string = query_string + " SELECT *  FROM active_principles";
     con.query(query_string, function (err, result, fields) {
         if (err) {
@@ -1747,7 +1899,8 @@ router.delete('/delete_active_principle', verify_token, (request, res, next) => 
 
 router.get('/get_all_medicamentos', verify_token, (request, res, next) => {
     var query_string = "";
-    query_string = query_string + " SELECT * from medicamentos";
+    query_string = query_string + " SELECT medicamentos.*, products.* from medicamentos";
+    query_string = query_string + " INNER JOIN products ON medicamentos.product_id = products.product_id";
     con.query(query_string, function (err, result, fields) {
         if (err) {
             console.log(err);
@@ -1763,7 +1916,8 @@ router.get('/get_all_medicamentos', verify_token, (request, res, next) => {
 
 router.get('/get_all_insumos', verify_token, (request, res, next) => {
     var query_string = "";
-    query_string = query_string + " SELECT * from insumos";
+    query_string = query_string + " SELECT insumos.*, products.* from insumos";
+    query_string = query_string + " INNER JOIN products ON insumos.product_id = products.product_id";
     con.query(query_string, function (err, result, fields) {
         if (err) {
             console.log(err);
@@ -2371,7 +2525,7 @@ router.delete('/delete_concentration', verify_token, (request, res, next) => {
 });
 
 router.get('/get_batchs_list', verify_token, (request, res, next) => {
-    var query_string = "";
+    let query_string = "";
     query_string = query_string + " SELECT batchs.*, ";
     query_string = query_string + " (SELECT COALESCE(sum(cartera_medicamentos.quantity),0) FROM cartera_medicamentos WHERE cartera_medicamentos.batch_id = batchs.batch_id) as batch_assigned,";
     query_string = query_string + " batchs.batch_quantity - (SELECT COALESCE(sum(cartera_medicamentos.quantity),0) FROM cartera_medicamentos WHERE cartera_medicamentos.batch_id = batchs.batch_id) as batch_available,";
@@ -2392,10 +2546,224 @@ router.get('/get_batchs_list', verify_token, (request, res, next) => {
     });
 });
 
+router.post('/insert_batch_product', verify_token, async (request, res, next) => {
+
+    let records = [
+        [
+            request.body.expiration_date,
+            parseFloat(request.body.unit_price),
+            request.body.quantity,
+            parseFloat(request.body.unit_price) * parseFloat(request.body.quantity),
+            request.body.product_id,
+            request.body.batch_id,
+        ],
+    ];
+    let query_string = "";
+    query_string = query_string + " INSERT INTO batch_product";
+    query_string = query_string + " (expiration_date,";
+    query_string = query_string + " unit_price,";
+    query_string = query_string + " quantity,";
+    query_string = query_string + " total,";
+    query_string = query_string + " product_id,";
+    query_string = query_string + " batch_id)";
+    query_string = query_string + " VALUES ?";
+
+    await con.query(query_string, [records], async function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            let query_string2 = "";
+            query_string2 = query_string2 + " SELECT * FROM batchs";
+            query_string2 = query_string2 + " WHERE batch_id = " + request.body.batch_id;
+            await con.query(query_string2, async function (err, result2, fields) {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err.message
+                    })
+                } else if (result2.length < 0) {
+                    console.log('404');
+                    return res.status(404).json({
+                        title: 'Error',
+                        message: 'El lote no existe'
+                    })
+                } else {
+                    let query_string3 = "";
+                    query_string3 = query_string3 + " UPDATE batchs";
+                    query_string3 = query_string3 + " SET batch_total=(SELECT SUM(batch_product.total) from batch_product WHERE batchs.batch_id = batch_product.batch_id)";
+                    // query_string3 = query_string3 + " WHERE batch_id=" + request.body.batch_id + ";";
+                    await con.query(query_string3, async function (err, result3, fields) {
+                        if (err) {
+                            console.log(err);
+                            return res.status(500).json({
+                                title: 'Error',
+                                message: err.message
+                            })
+                        } else {
+                            const presentation_unit_cost = (parseFloat(request.body.unit_price)) / parseFloat(request.body.presentation_quantity);
+                            let records = [
+                                [
+                                    (parseFloat(request.body.unit_price) * parseFloat(request.body.quantity)),
+                                    request.body.unit_price,
+                                    presentation_unit_cost,
+                                    request.body.aus,
+                                    (parseFloat(presentation_unit_cost)) * parseFloat(request.body.aus),
+                                    request.body.quantity,
+                                    0,
+                                    request.body.quantity,
+                                    0,
+                                    request.body.quantity,
+                                    result.insertId,
+                                ],
+                            ];
+                            let query_string4 = "";
+                            query_string4 = query_string4 + " INSERT INTO inventory";
+                            query_string4 = query_string4 + " (costo_compra,";
+                            query_string4 = query_string4 + " costo_unidad,";
+                            query_string4 = query_string4 + " presentation_unit_cost,";
+                            query_string4 = query_string4 + " aus,";
+                            query_string4 = query_string4 + " costo_aus,";
+                            query_string4 = query_string4 + " entrada_inventario,";
+                            query_string4 = query_string4 + " salida_inventario,";
+                            query_string4 = query_string4 + " saldo_inventario,";
+                            query_string4 = query_string4 + " en_cartera,";
+                            query_string4 = query_string4 + " sin_cartera,";
+                            query_string4 = query_string4 + " batch_product_id)";
+                            query_string4 = query_string4 + " VALUES ?";
+                            await con.query(query_string4, [records], async function (err, result4, fields) {
+                                if (err) {
+                                    console.log(err);
+                                    return res.status(500).json({
+                                        title: 'Error',
+                                        message: err.message
+                                    })
+                                } else {
+                                    return res.status(200).json({
+                                        title: 'Producto ingresado exitosamente al sistema',
+                                        message: 'El producto fue asignado de manera satisfactoria',
+                                        batch_product_id: result.insertId
+                                    })
+                                }
+                            })
+                        }
+                    })
+                }
+            })
+        }
+    });
+});
+
 router.get('/get_batch', verify_token, (request, res, next) => {
-    var query_string = "";
+    let query_string = "";
+    query_string = query_string + " SELECT batchs.*, batch_product.* FROM batchs";
+    query_string = query_string + " INNER JOIN batch_product on  batch_product.batch_id = batchs.batch_id";
+    query_string = query_string + " WHERE batchs.batch_id = " + request.query.batch_id;
+    con.query(query_string, function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            let query_string2 = "";
+            query_string2 = query_string2 + " SELECT batchs.batch_id, batch_product.quantity, medicamentos.* FROM batchs";
+            query_string2 = query_string2 + " INNER JOIN batch_product on  batch_product.batch_id = batchs.batch_id";
+            query_string2 = query_string2 + " INNER JOIN medicamentos on  medicamentos.product_id = batch_product.product_id";
+            query_string2 = query_string2 + " WHERE batchs.batch_id = " + request.query.batch_id;
+            con.query(query_string2, function (err, result2, fields) {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err.message
+                    })
+                } else {
+                    let query_string3 = "";
+                    query_string3 = query_string3 + " SELECT batchs.batch_id, batch_product.quantity, insumos.* FROM batchs";
+                    query_string3 = query_string3 + " INNER JOIN batch_product on  batch_product.batch_id = batchs.batch_id";
+                    query_string3 = query_string3 + " INNER JOIN insumos on  insumos.product_id = batch_product.product_id";
+                    query_string3 = query_string3 + " WHERE batchs.batch_id = " + request.query.batch_id;
+                    con.query(query_string3, function (err, result3, fields) {
+                        if (err) {
+                            return res.status(500).json({
+                                title: 'Error',
+                                message: err.message
+                            })
+                        } else {
+                            return res.status(200).json({
+                                batch: result,
+                                medicamentos: result2,
+                                insumos: result3
+                            })
+                        }
+                    })
+                }
+            });
+        }
+    });
+});
+
+router.get('/get_batch_products', verify_token, (request, res, next) => {
+    let query_string = "";
+    query_string = query_string + " SELECT batchs.*, batch_product.product_id FROM batchs";
+    query_string = query_string + " INNER JOIN batch_product ON batch_product.batch_id = batchs.batch_id";
+    query_string = query_string + " WHERE batchs.batch_id = " + request.query.batch_id;
+    con.query(query_string, function (err, result1, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            let query_string2 = "";
+            query_string2 = query_string2 + " SELECT medicamentos.* FROM batchs";
+            query_string2 = query_string2 + " INNER JOIN batch_product ON batch_product.batch_id = batchs.batch_id";
+            query_string2 = query_string2 + " INNER JOIN medicamentos ON medicamentos.product_id = batch_product.product_id";
+            query_string2 = query_string2 + " WHERE batchs.batch_id = " + request.query.batch_id;
+            con.query(query_string2, function (err, result2, fields) {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err.message
+                    })
+                } else {
+                    let query_string3 = "";
+                    query_string3 = query_string3 + " SELECT insumos.* FROM batchs";
+                    query_string3 = query_string3 + " INNER JOIN batch_product ON batch_product.batch_id = batchs.batch_id";
+                    query_string3 = query_string3 + " INNER JOIN insumos ON insumos.product_id = batch_product.product_id";
+                    query_string3 = query_string3 + " WHERE batchs.batch_id = " + request.query.batch_id;
+                    con.query(query_string3, function (err, result3, fields) {
+                        if (err) {
+                            console.log(err);
+                            return res.status(500).json({
+                                title: 'Error',
+                                message: err.message
+                            })
+                        } else {
+                            return res.status(200).json({
+                                batch: result1,
+                                medicamentos: result2,
+                                insumos: result3
+                            })
+                        }
+                    });
+                }
+            });
+        }
+    });
+});
+
+router.get('/get_all_batchs', verify_token, (request, res, next) => {
+    let query_string = "";
     query_string = query_string + " SELECT * FROM batchs";
-    query_string = query_string + " WHERE batch_id = " + request.query.batch_id;
     con.query(query_string, function (err, result, fields) {
         if (err) {
             console.log(err);
@@ -2409,10 +2777,202 @@ router.get('/get_batch', verify_token, (request, res, next) => {
     });
 });
 
+router.get('/get_available_inventory', verify_token, (request, res, next) => {
+    let query_string = "";
+    query_string = query_string + " SELECT (inventory.costo_unidad * inventory.saldo_inventario) as worth, products.presentation_quantity per_presentation, inventory.saldo_inventario as in_stock, (inventory.saldo_inventario * inventory.costo_unidad) as available_product_worth, medicamentos.* from inventory";
+    query_string = query_string + " INNER JOIN batch_product ON batch_product.id = inventory.batch_product_id";
+    query_string = query_string + " INNER JOIN products ON batch_product.product_id = products.product_id";
+    query_string = query_string + " INNER JOIN medicamentos ON medicamentos.product_id = products.product_id";
+    query_string = query_string + " Where inventory.saldo_inventario > 0";
+    con.query(query_string, function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            let query_string2 = "";
+            query_string2 = query_string2 + " SELECT (inventory.costo_unidad * inventory.saldo_inventario) as worth, products.presentation_quantity per_presentation, inventory.saldo_inventario as in_stock, (inventory.saldo_inventario * inventory.costo_unidad) as available_product_worth, inventory.*, insumos.* from inventory";
+            query_string2 = query_string2 + " INNER JOIN batch_product ON batch_product.id = inventory.batch_product_id";
+            query_string2 = query_string2 + " INNER JOIN products ON batch_product.product_id = products.product_id";
+            query_string2 = query_string2 + " INNER JOIN insumos ON insumos.product_id = products.product_id";
+            query_string = query_string + " Where inventory.saldo_inventario > 0";
+            con.query(query_string2, function (err, result2, fields) {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err.message
+                    })
+                } else {
+                    let query_string3 = "";
+                    query_string3 = query_string3 + " SELECT SUM(inventory.costo_unidad * inventory.saldo_inventario) as total_worth from inventory ";
+                    query_string = query_string + " Where inventory.saldo_inventario > 0";
+                    con.query(query_string3, function (err, result3, fields) {
+                        if (err) {
+                            console.log(err);
+                            return res.status(500).json({
+                                title: 'Error',
+                                message: err.message
+                            })
+                        } else {
+                            return res.status(200).json({
+                                medicamentos_inventory: result,
+                                insumos_inventory: result2,
+                                total_worth: result3[0].total_worth
+                            })
+                        }
+                    })
+                }
+            })
+        }
+    });
+});
+
+router.get('/get_all_cartera_products', verify_token, (request, res, next) => {
+    let query_string = "";
+    query_string = query_string + " SELECT alerts.id as alert_id, products.pum as product_pum, carteras.cartera_id as cartera_id, cartera_batch_products.id as cartera_batch_products_id, cartera_batch_products.quantity, medicamentos.* from carteras";
+    query_string = query_string + " INNER JOIN cartera_batch_products ON cartera_batch_products.cartera_id = carteras.cartera_id";
+    query_string = query_string + " INNER JOIN alerts ON alerts.id = cartera_batch_products.alert_id";
+    query_string = query_string + " INNER JOIN batch_product ON batch_product.id = cartera_batch_products.batch_product_id";
+    query_string = query_string + " INNER JOIN products ON products.product_id = batch_product.product_id";
+    query_string = query_string + " INNER JOIN medicamentos ON medicamentos.product_id = products.product_id";
+    query_string = query_string + " WHERE carteras.institution_id = " + request.query.institution_id;
+    query_string = query_string + " AND cartera_batch_products.quantity > 0";
+    con.query(query_string, function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            let query_string2 = "";
+            query_string2 = query_string2 + " SELECT alerts.id as alert_id, products.pum as product_pum, carteras.cartera_id as cartera_id, cartera_batch_products.id as cartera_batch_products_id, cartera_batch_products.quantity, insumos.* from carteras";
+            query_string2 = query_string2 + " INNER JOIN cartera_batch_products ON cartera_batch_products.cartera_id = carteras.cartera_id";
+            query_string2 = query_string2 + " INNER JOIN alerts ON alerts.id = cartera_batch_products.alert_id";
+            query_string2 = query_string2 + " INNER JOIN batch_product ON batch_product.id = cartera_batch_products.batch_product_id";
+            query_string2 = query_string2 + " INNER JOIN products ON products.product_id = batch_product.product_id";
+            query_string2 = query_string2 + " INNER JOIN insumos ON insumos.product_id = products.product_id";
+            query_string2 = query_string2 + " WHERE carteras.institution_id = " + request.query.institution_id;
+            query_string = query_string + " AND cartera_batch_products.quantity > 0";
+            con.query(query_string2, function (err, result2, fields) {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err.message
+                    })
+                } else {
+                    return res.status(200).json({
+                        medicamentos: result,
+                        insumos: result2
+                    })
+                }
+            })
+        }
+    });
+});
+
+router.post('/use_cartera_product', verify_token, (request, res, next) => {
+    console.log(request.body);
+    
+    const alert_id = request.body.alert_id;
+    const student_count = request.body.student_count;
+    const quantity = request.body.quantity - request.body.used;
+    const product_pum = request.body.product_pum;
+    const needed = product_pum * student_count;
+    const median = needed / 2;
+    let id = 0;
+
+    if (quantity > needed) {
+        id = 2;
+    } else if (quantity === needed) {
+        id = 1;
+    } else if (quantity < needed) {
+        if (quantity === median) {
+            id = 3;
+        } else if (quantity < median) {
+            id = 4;
+        }
+    }
+    let query_string = "";
+    if (alert_id > 1) {
+        query_string = query_string + " UPDATE cartera_batch_products, carteras";
+        query_string = query_string + " SET cartera_batch_products.alert_id=" + id + ",";
+        query_string = query_string + " cartera_batch_products.quantity=" + quantity;
+        query_string = query_string + " WHERE cartera_batch_products.id=" + request.body.cartera_batch_products_id;
+    } else {
+        query_string = query_string + " UPDATE cartera_batch_products, carteras";
+        query_string = query_string + " SET cartera_batch_products.alert_id=" + id + ",";
+        query_string = query_string + " cartera_batch_products.quantity=" + quantity;
+        query_string = query_string + " carteras.alert_count= carteras.alert_count + 1";
+        query_string = query_string + " WHERE cartera_batch_products.id=" + request.body.cartera_batch_products_id;
+        query_string = query_string + " AND carteras.cartera_id=" + request.body.cartera_id;
+    }
+
+    con.query(query_string, function (err, result8, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            return res.status(200).json({
+                title: 'Productos utilizados exitosamente',
+                message: 'La productos fueron utilizados de manera satisfactoria',
+            })
+        }
+    })
+})
+
+router.get('/get_all_cartera_info', verify_token, (request, res, next) => {
+    // (SELECT SUM(carteras.alert_count) FROM carteras WHERE carteras.institution_id = instituciones.id) as total_alertas
+    let query_string = "";
+    query_string = query_string + " SELECT instituciones.*, (SELECT SUM(carteras.alert_count) FROM carteras WHERE carteras.institution_id = instituciones.id) as total_alertas, (SELECT SUM(carteras.total_worth) FROM carteras WHERE carteras.institution_id = instituciones.id) as total_worth from instituciones HAVING total_worth IS NOT NULL";
+    // query_string = query_string + " INNER JOIN carteras ON instituciones.id = carteras.institution_id";
+    con.query(query_string, function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            return res.status(200).json(result)
+        }
+    });
+});
+
+router.get('/get_all_cartera_insumo_info', verify_token, (request, res, next) => {
+    let query_string = "";
+    query_string = query_string + " SELECT instituciones.id, instituciones.nombre, instituciones.ciudad, carteras.cartera_id, (cartera_insumos.cantidad * batch_insumo.unit_price) as total_worth , cartera_insumos.*, cartera_batch.* FROM instituciones";
+    query_string = query_string + " INNER JOIN carteras ON instituciones.id = carteras.institution_id";
+    query_string = query_string + " INNER JOIN cartera_insumos ON cartera_insumos.cartera_id = carteras.cartera_id";
+    query_string = query_string + " INNER JOIN cartera_batch ON cartera_batch.cartera_id = cartera_insumos.cartera_id";
+    query_string = query_string + " INNER JOIN batchs ON batchs.batch_id = cartera_batch.batch_id";
+    query_string = query_string + " INNER JOIN batch_insumo ON batch_insumo.batch_id = batchs.batch_id";
+    con.query(query_string, function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            return res.status(200).json(result)
+        }
+    });
+});
+
+
+
 router.get('/get_search_batch', verify_token, (request, res, next) => {
-    var query_string = "";
+    let query_string = "";
     query_string = query_string + " SELECT * FROM batchs";
-    query_string = query_string + "  WHERE expiration_date LIKE '%" + request.query.expiration_date + "%'";
+    query_string = query_string + " WHERE expiration_date LIKE '%" + request.query.expiration_date + "%'";
     console.log(query_string);
     con.query(query_string, function (err, result, fields) {
         if (err) {
@@ -2432,25 +2992,74 @@ router.get('/get_search_batch', verify_token, (request, res, next) => {
     });
 });
 
-router.post('/insert_batch', verify_token, (request, res, next) => {
-    var records = [
+router.get('/get_consultas', verify_token, (request, res, next) => {
+    let query_string = "";
+    query_string = query_string + " SELECT instituciones.nombre as institucion, CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name, CONCAT(patients.first_name, ' ', patients.last_name) as patient_name from consultas";
+    query_string = query_string + " INNER JOIN instituciones ON instituciones.id = consultas.institution_id";
+    query_string = query_string + " INNER JOIN doctors ON doctors.doctor_id = consultas.doctor_id";
+    query_string = query_string + " INNER JOIN patients ON patients.patient_id = consultas.patient_id";
+    con.query(query_string, function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            let query_string2 = "";
+            query_string2 = query_string2 + " SELECT instituciones.* FROM consultas";
+            query_string2 = query_string2 + " INNER JOIN instituciones ON instituciones.id = consultas.institution_id";
+            con.query(query_string2, function (err, result2, fields) {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err.message
+                    })
+                } else {
+                    let query_string3 = "";
+                    query_string3 = query_string3 + " SELECT doctors.* FROM consultas";
+                    query_string3 = query_string3 + " INNER JOIN doctors ON doctors.doctor_id = consultas.doctor_id";
+                    con.query(query_string2, function (err, result3, fields) {
+                        if (err) {
+                            console.log(err);
+                            return res.status(500).json({
+                                title: 'Error',
+                                message: err.message
+                            })
+                        } else {
+                            return res.status(200).json({
+                                consultas: result,
+                                instituciones: result2,
+                                doctors: result3
+                            })
+                        }
+                    })
+                }
+            })
+        }
+    })
+})
+
+router.post('/insert_consulta', verify_token, (request, res, next) => {
+    let records = [
         [
-            request.body.product_id,
-            request.body.expiration_date,
-            request.body.purchase_date,
-            request.body.batch_price,
-            request.body.batch_quantity,
-            request.body.observation
+            request.body.institution_id,
+            request.body.patient_id,
+            request.body.doctor_id,
+            request.body.motivo_consulta,
+            request.body.diagnostico,
+            request.body.recomendaciones
         ],
     ];
-    var query_string1 = "";
-    query_string1 = query_string1 + " INSERT INTO batchs";
-    query_string1 = query_string1 + " (product_id,";
-    query_string1 = query_string1 + " expiration_date,";
-    query_string1 = query_string1 + " purchase_date,";
-    query_string1 = query_string1 + " batch_price,";
-    query_string1 = query_string1 + " batch_quantity,";
-    query_string1 = query_string1 + " observation)";
+    let query_string1 = "";
+    query_string1 = query_string1 + " INSERT INTO consultas";
+    query_string1 = query_string1 + " (institution_id,";
+    query_string1 = query_string1 + " patient_id,";
+    query_string1 = query_string1 + " doctor_id,";
+    query_string1 = query_string1 + " motivo_consulta,";
+    query_string1 = query_string1 + " diagnostico,";
+    query_string1 = query_string1 + " recomendaciones)";
     query_string1 = query_string1 + " VALUES ?";
     con.query(query_string1, [records], function (err, result, fields) {
         if (err) {
@@ -2462,7 +3071,115 @@ router.post('/insert_batch', verify_token, (request, res, next) => {
         } else {
             return res.status(200).json({
                 title: 'Operacion realizada con exito',
-                message: 'La operacion fue realizada de manera satisfactoria'
+                message: 'La operacion fue realizada de manera satisfactoria',
+                consulta_id: result.insertId
+            })
+        }
+    });
+});
+
+router.post('/insert_consulta_products', verify_token, (request, res, next) => {
+    console.log(request.body);
+
+    let records = [
+        [
+            request.body.consulta_id,
+            request.body.cartera_batch_product_id,
+            request.body.quantity,
+        ],
+    ];
+    let query_string1 = "";
+    query_string1 = query_string1 + " INSERT INTO consulta_products";
+    query_string1 = query_string1 + " (consulta_id,";
+    query_string1 = query_string1 + " cartera_batch_product_id,";
+    query_string1 = query_string1 + " quantity)";
+    query_string1 = query_string1 + " VALUES ?";
+    con.query(query_string1, [records], function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            let query_string2 = "";
+            query_string2 = query_string2 + " SELECT * FROM cartera_batch_products";
+            query_string2 = query_string2 + " WHERE id = " + request.body.cartera_batch_product_id;
+            console.log(query_string2, '------------------------');
+
+            con.query(query_string2, function (err, result2, fields) {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err.message
+                    })
+                } else {
+
+                    let query_string3 = "";
+                    query_string3 = query_string3 + " UPDATE cartera_batch_products";
+                    query_string3 = query_string3 + " SET quantity=" + (Number(result2[0].quantity) - Number(request.body.quantity));
+                    query_string3 = query_string3 + " WHERE id = " + result2[0].id;
+                    console.log(query_string3);
+
+                    con.query(query_string3, function (err, result3, fields) {
+                        if (err) {
+                            console.log(err);
+                            return res.status(500).json({
+                                title: 'Error',
+                                message: err.message
+                            })
+                        } else {
+                            let query_string4 = "";
+                            query_string4 = query_string4 + " UPDATE carteras";
+                            query_string4 = query_string4 + " SET total_worth=(SELECT SUM(" + (Number(result2[0].quantity) - Number(request.body.quantity)) + "* inventory.costo_unidad) from inventory WHERE inventory.batch_product_id = " + result2[0].batch_product_id + ")";
+                            query_string4 = query_string4 + " WHERE cartera_id = " + request.body.cartera_id;
+                            con.query(query_string4, function (err, result2, fields) {
+                                if (err) {
+                                    console.log(err);
+                                    return res.status(500).json({
+                                        title: 'Error',
+                                        message: err.message
+                                    })
+                                } else {
+                                    return res.status(200).json({
+                                        title: 'Operacion realizada con exito',
+                                        message: 'La operacion fue realizada de manera satisfactoria',
+                                    })
+                                }
+                            })
+                        }
+                    })
+                }
+            });
+        }
+    });
+})
+
+router.post('/insert_batch', verify_token, (request, res, next) => {
+    let records = [
+        [
+            request.body.purchase_date,
+            0,
+        ],
+    ];
+    let query_string1 = "";
+    query_string1 = query_string1 + " INSERT INTO batchs";
+    query_string1 = query_string1 + " (purchase_date,";
+    query_string1 = query_string1 + " batch_total)";
+    query_string1 = query_string1 + " VALUES ?";
+    con.query(query_string1, [records], function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            return res.status(200).json({
+                title: 'Operacion realizada con exito',
+                message: 'La operacion fue realizada de manera satisfactoria',
+                batch_id: result.insertId
             })
         }
     });
@@ -2696,15 +3413,15 @@ router.post('/insert_cartera', verify_token, (request, res, next) => {
     let records = [
         [
             request.body.institution_id,
-            request.body.nombre,
-            request.body.descripcion,
+            0,
+            0
         ],
     ];
     let query_string = "";
     query_string = query_string + " INSERT INTO carteras";
     query_string = query_string + " (institution_id,";
-    query_string = query_string + " nombre,";
-    query_string = query_string + " descripcion)";
+    query_string = query_string + " total_worth,";
+    query_string = query_string + " alert_count)";
     query_string = query_string + " VALUES ?";
 
     con.query(query_string, [records], function (err, result, fields) {
@@ -2718,7 +3435,156 @@ router.post('/insert_cartera', verify_token, (request, res, next) => {
             return res.status(200).json({
                 title: 'Cartera ingresada exitosamente',
                 message: 'La cartera fue creada de manera satisfactoria',
-                medicamento_id: result.insertId
+                cartera_id: result.insertId
+            })
+        }
+    })
+});
+
+router.post('/insert_cartera_batch_products', verify_token, (request, res, next) => {
+    let records = [
+        [
+            request.body.cartera_id,
+            request.body.batch_product_id,
+            0,
+            request.body.quantity,
+        ],
+    ];
+    let query_string2 = "";
+    query_string2 = query_string2 + " INSERT INTO cartera_batch_products";
+    query_string2 = query_string2 + " (cartera_id,";
+    query_string2 = query_string2 + " batch_product_id,";
+    query_string2 = query_string2 + " alert_id,";
+    query_string2 = query_string2 + " quantity)";
+    query_string2 = query_string2 + " VALUES ?";
+    con.query(query_string2, [records], function (err, result2, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            let query_string3 = "";
+            query_string3 = query_string3 + " UPDATE carteras";
+            query_string3 = query_string3 + " SET total_worth=(SELECT SUM(" + request.body.quantity + "* inventory.costo_unidad) from inventory WHERE inventory.batch_product_id = " + request.body.batch_product_id + ")";
+            query_string3 = query_string3 + " WHERE cartera_id = " + request.body.cartera_id;
+            con.query(query_string3, function (err, result3, fields) {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err.message
+                    })
+                } else {
+                    let query_string4 = "";
+                    query_string4 = query_string4 + " SELECT * from inventory"
+                    query_string4 = query_string4 + " WHERE batch_product_id = " + request.body.batch_product_id;
+                    con.query(query_string4, function (err, result4, fields) {
+                        if (err) {
+                            console.log(err);
+                            return res.status(500).json({
+                                title: 'Error',
+                                message: err.message
+                            })
+                        } else {
+                            let query_string5 = "";
+                            query_string5 = query_string5 + " UPDATE inventory";
+                            query_string5 = query_string5 + " SET en_cartera=" + (Number(result4[0].en_cartera) + Number(request.body.quantity)) + ",";
+                            query_string5 = query_string5 + " sin_cartera=" + (Number(result4[0].sin_cartera) - Number(request.body.quantity)) + ",";
+                            query_string5 = query_string5 + " saldo_inventario=" + (Number(result4[0].saldo_inventario) - Number(request.body.quantity)) + ",";
+                            query_string5 = query_string5 + " salida_inventario=" + (Number(result4[0].salida_inventario) + Number(request.body.quantity));
+                            query_string5 = query_string5 + " WHERE id=" + result4[0].id + ";";
+                            con.query(query_string5, function (err, result5, fields) {
+                                if (err) {
+                                    console.log(err);
+                                    return res.status(500).json({
+                                        title: 'Error',
+                                        message: err.message
+                                    })
+                                } else {
+                                    let query_string6 = "";
+                                    query_string6 = query_string6 + " SELECT instituciones.student_count as student_count from carteras"
+                                    query_string6 = query_string6 + " INNER JOIN instituciones ON carteras.institution_id = instituciones.id";
+                                    query_string6 = query_string6 + " WHERE carteras.cartera_id = " + request.body.cartera_id;
+                                    con.query(query_string6, function (err, result6, fields) {
+                                        if (err) {
+                                            console.log(err);
+                                            return res.status(500).json({
+                                                title: 'Error',
+                                                message: err.message
+                                            })
+                                        } else {
+                                            let query_string7 = "";
+                                            query_string7 = query_string7 + " SELECT (products.pum * " + request.body.quantity + ") as product_pum from batch_product"
+                                            query_string7 = query_string7 + " INNER JOIN products ON products.product_id = batch_product.product_id";
+                                            query_string7 = query_string7 + " WHERE batch_product.id = " + request.body.batch_product_id;
+                                            con.query(query_string7, function (err, result7, fields) {
+                                                if (err) {
+                                                    console.log(err);
+                                                    return res.status(500).json({
+                                                        title: 'Error',
+                                                        message: err.message
+                                                    })
+                                                } else {
+                                                    const student_count = result6[0].student_count;
+                                                    const quantity = request.body.quantity;
+                                                    const product_pum = result7[0].product_pum;
+                                                    const needed = product_pum * student_count;
+                                                    const median = needed / 2;
+                                                    let id = 0;
+                                                    console.log(quantity, product_pum, needed, median);
+
+                                                    if (quantity > needed) {
+                                                        console.log('OVERLOAD');
+
+                                                        id = 2;
+                                                    } else if (quantity === needed) {
+                                                        console.log('OK');
+                                                        id = 1;
+                                                    } else if (quantity < needed) {
+                                                        if (quantity === median) {
+
+                                                            console.log('HALF');
+                                                            id = 3;
+                                                        } else if (quantity < median) {
+
+                                                            console.log('DANGER');
+                                                            id = 4;
+                                                        }
+                                                    }
+                                                    // (SELECT SUM(carteras.alert_count) FROM carteras WHERE carteras.institution_id = instituciones.id) as total_alertas
+                                                    let query_string8 = "";
+                                                    query_string8 = query_string8 + " UPDATE cartera_batch_products, carteras";
+                                                    query_string8 = query_string8 + " SET cartera_batch_products.alert_id=" + id + ",";
+                                                    query_string8 = (id > 1) ? query_string8 + " carteras.alert_count= carteras.alert_count + 1" : query_string8 + " carteras.alert_count= carteras.alert_count + 0";
+                                                    query_string8 = query_string8 + " WHERE cartera_batch_products.id=" + result2.insertId;
+                                                    query_string8 = query_string8 + " AND carteras.cartera_id=" + request.body.cartera_id;
+                                                    console.log(query_string8, '---------------------');
+
+                                                    con.query(query_string8, function (err, result8, fields) {
+                                                        if (err) {
+                                                            console.log(err);
+                                                            return res.status(500).json({
+                                                                title: 'Error',
+                                                                message: err.message
+                                                            })
+                                                        } else {
+                                                            return res.status(200).json({
+                                                                title: 'Cartera ingresada exitosamente',
+                                                                message: 'La cartera fue creada de manera satisfactoria',
+                                                            })
+                                                        }
+                                                    })
+                                                }
+                                            })
+                                        }
+                                    })
+                                }
+                            })
+                        }
+                    });
+                }
             })
         }
     });
@@ -2873,7 +3739,63 @@ router.get('/get_institution_cartera', verify_token, (request, res, next) => {
                 message: err.message
             })
         } else {
-            return res.status(200).json(result)
+            let query_string2 = "";
+            query_string2 = query_string2 + " SELECT (cartera_batch_products.quantity * inventory.costo_compra) as worth, products.presentation_quantity as per_presentation, alerts.type as status, medicamentos.*, cartera_batch_products.id as cartera_batch_id, carteras.cartera_id, cartera_batch_products.quantity as in_stock from carteras";
+            query_string2 = query_string2 + " INNER JOIN cartera_batch_products ON cartera_batch_products.cartera_id = carteras.cartera_id";
+            query_string2 = query_string2 + " INNER JOIN alerts ON alerts.id = cartera_batch_products.alert_id";
+            query_string2 = query_string2 + " INNER JOIN batch_product ON batch_product.id = cartera_batch_products.batch_product_id";
+            query_string2 = query_string2 + " INNER JOIN inventory ON inventory.batch_product_id = batch_product.id";
+            query_string2 = query_string2 + " INNER JOIN products ON products.product_id = batch_product.product_id";
+            query_string2 = query_string2 + " INNER JOIN medicamentos ON medicamentos.product_id = batch_product.product_id";
+            query_string2 = query_string2 + " WHERE carteras.institution_id = " + request.query.institution_id;
+            con.query(query_string2, function (err, result2, fields) {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err.message
+                    })
+                } else {
+                    let query_string3 = "";
+                    query_string3 = query_string3 + " SELECT (cartera_batch_products.quantity * inventory.costo_compra) as worth, products.presentation_quantity as per_presentation, alerts.type as status, insumos.*, cartera_batch_products.id as cartera_batch_id, carteras.cartera_id, cartera_batch_products.quantity as in_stock from carteras";
+                    query_string3 = query_string3 + " INNER JOIN cartera_batch_products ON cartera_batch_products.cartera_id = carteras.cartera_id";
+                    query_string3 = query_string3 + " INNER JOIN alerts ON alerts.id = cartera_batch_products.alert_id";
+                    query_string3 = query_string3 + " INNER JOIN batch_product ON batch_product.id = cartera_batch_products.batch_product_id";
+                    query_string3 = query_string3 + " INNER JOIN inventory ON inventory.batch_product_id = batch_product.id";
+                    query_string3 = query_string3 + " INNER JOIN products ON products.product_id = batch_product.product_id";
+                    query_string3 = query_string3 + " INNER JOIN insumos ON insumos.product_id = batch_product.product_id";
+                    query_string3 = query_string3 + " WHERE carteras.institution_id = " + request.query.institution_id;
+                    con.query(query_string3, function (err, result3, fields) {
+                        if (err) {
+                            console.log(err);
+                            return res.status(500).json({
+                                title: 'Error',
+                                message: err.message
+                            })
+                        } else {
+                            let query_string4 = "";
+                            query_string4 = query_string4 + " SELECT SUM(alert_count) as total_alerts from carteras";
+                            query_string4 = query_string4 + " WHERE institution_id = " + request.query.institution_id;
+                            con.query(query_string4, function (err, result4, fields) {
+                                if (err) {
+                                    console.log(err);
+                                    return res.status(500).json({
+                                        title: 'Error',
+                                        message: err.message
+                                    })
+                                } else {
+                                    return res.status(200).json({
+                                        cartera: result,
+                                        medicamentos: result2,
+                                        insumos: result3,
+                                        total_alerts: result4[0].total_alerts
+                                    })
+                                }
+                            })
+                        }
+                    })
+                }
+            })
         }
     });
 })
