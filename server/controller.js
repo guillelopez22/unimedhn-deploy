@@ -1674,8 +1674,9 @@ router.get('/get_inventory_medicamento', verify_token, (request, res, next) => {
 
 router.get('/get_medicamento_inventory', verify_token, (request, res, next) => {
     let query_string = "";
-    query_string = query_string + " SELECT medicamentos.*, products.aus_quantity, products.presentation_quantity, inventory.saldo_inventario, batch_product.id as batch_product_id, batch_product.expiration_date from medicamentos";
+    query_string = query_string + " SELECT products.pum as product_pum, medicamentos.*, products.aus_quantity, products.presentation_quantity, inventory.saldo_inventario, batch_product.id as batch_product_id, batch_product.expiration_date from medicamentos";
     query_string = query_string + " INNER JOIN batch_product ON batch_product.product_id = medicamentos.product_id";
+    query_string = query_string + " INNER JOIN cartera_batch_products ON cartera_batch_products.batch_product_id = batch_product.id";
     query_string = query_string + " INNER JOIN products ON products.product_id = medicamentos.product_id";
     query_string = query_string + " INNER JOIN inventory ON inventory.batch_product_id = batch_product.id";
     // query_string = query_string + " WHERE medicamentos.nombre LIKE '%" + request.query.active_principle + "%'";
@@ -1757,7 +1758,7 @@ router.get('/get_active_principles_list', verify_token, (request, res, next) => 
 });
 
 router.get('/get_active_principle', verify_token, (request, res, next) => {
-    var query_string = "";
+    let query_string = "";
     query_string = query_string + " SELECT * FROM active_principles";
     query_string = query_string + " WHERE active_principle_id = " + request.query.active_principle_id;
     con.query(query_string, function (err, result, fields) {
@@ -1774,7 +1775,7 @@ router.get('/get_active_principle', verify_token, (request, res, next) => {
 });
 
 router.post('/insert_active_principle', verify_token, (request, res, next) => {
-    var query_string = "";
+    let query_string = "";
     query_string = query_string + " SELECT name FROM active_principles";
     query_string = query_string + " WHERE name = '" + request.body.name + "'";
     con.query(query_string, function (err, result, fields) {
@@ -2876,8 +2877,6 @@ router.get('/get_all_cartera_products', verify_token, (request, res, next) => {
 });
 
 router.post('/use_cartera_product', verify_token, (request, res, next) => {
-    console.log(request.body);
-    
     const alert_id = request.body.alert_id;
     const student_count = request.body.student_count;
     const quantity = request.body.quantity - request.body.used;
@@ -2897,35 +2896,139 @@ router.post('/use_cartera_product', verify_token, (request, res, next) => {
             id = 4;
         }
     }
-    let query_string = "";
-    if (alert_id > 1) {
-        query_string = query_string + " UPDATE cartera_batch_products, carteras";
-        query_string = query_string + " SET cartera_batch_products.alert_id=" + id + ",";
-        query_string = query_string + " cartera_batch_products.quantity=" + quantity;
-        query_string = query_string + " WHERE cartera_batch_products.id=" + request.body.cartera_batch_products_id;
+    if (request.body.batch_product_id !== undefined) {
+        let query_string2 = "";
+        query_string2 = query_string2 + " SELECT * from inventory"
+        query_string2 = query_string2 + " WHERE batch_product_id = " + request.body.batch_product_id;
+        con.query(query_string2, function (err, result4, fields) {
+            if (err) {
+                console.log(err);
+                return res.status(500).json({
+                    title: 'Error',
+                    message: err.message
+                })
+            } else {
+                let query_string3 = "";
+                query_string3 = query_string3 + " UPDATE inventory";
+                query_string3 = query_string3 + " SET en_cartera=" + (Number(result4[0].en_cartera) + Number((request.body.used * -1))) + ",";
+                query_string3 = query_string3 + " sin_cartera=" + (Number(result4[0].sin_cartera) - Number((request.body.used * -1))) + ",";
+                query_string3 = query_string3 + " saldo_inventario=" + (Number(result4[0].saldo_inventario) - Number((request.body.used * -1))) + ",";
+                query_string3 = query_string3 + " salida_inventario=" + (Number(result4[0].salida_inventario) + Number((request.body.used * -1)));
+                query_string3 = query_string3 + " WHERE id=" + result4[0].id + ";";
+                con.query(query_string3, function (err, result5, fields) {
+                    if (err) {
+                        console.log(err);
+                        return res.status(500).json({
+                            title: 'Error',
+                            message: err.message
+                        })
+                    } else {
+                        let query_string = "";
+                        // if (alert_id > 1) {
+                        //     query_string = query_string + " UPDATE cartera_batch_products, carteras";
+                        //     query_string = query_string + " SET cartera_batch_products.alert_id=" + id + ",";
+                        //     query_string = query_string + " cartera_batch_products.quantity=" + quantity;
+                        //     query_string = query_string + " WHERE cartera_batch_products.id=" + request.body.cartera_batch_products_id;
+                        // } else 
+                        if (id === 1 && alert_id !== 1) {
+                            query_string = query_string + " UPDATE cartera_batch_products, carteras";
+                            query_string = query_string + " SET cartera_batch_products.alert_id=" + id + ",";
+                            query_string = query_string + " cartera_batch_products.quantity=" + quantity + ",";
+                            query_string = query_string + " carteras.alert_count= carteras.alert_count - 1";
+                            query_string = query_string + " WHERE cartera_batch_products.id=" + request.body.cartera_batch_products_id;
+                            query_string = query_string + " AND carteras.cartera_id=" + request.body.cartera_id;
+                        } else if (id !== 1 && alert_id !== 1) {
+                            query_string = query_string + " UPDATE cartera_batch_products, carteras";
+                            query_string = query_string + " SET cartera_batch_products.alert_id=" + id + ",";
+                            query_string = query_string + " cartera_batch_products.quantity=" + quantity + ",";
+                            query_string = query_string + " carteras.alert_count= carteras.alert_count + 0";
+                            query_string = query_string + " WHERE cartera_batch_products.id=" + request.body.cartera_batch_products_id;
+                            query_string = query_string + " AND carteras.cartera_id=" + request.body.cartera_id;
+                        } else if (id === 1 && alert_id === 1) {
+                            query_string = query_string + " UPDATE cartera_batch_products, carteras";
+                            query_string = query_string + " SET cartera_batch_products.alert_id=" + id + ",";
+                            query_string = query_string + " cartera_batch_products.quantity=" + quantity + ",";
+                            query_string = query_string + " carteras.alert_count= carteras.alert_count + 0";
+                            query_string = query_string + " WHERE cartera_batch_products.id=" + request.body.cartera_batch_products_id;
+                            query_string = query_string + " AND carteras.cartera_id=" + request.body.cartera_id;
+                        } else if (id !== 1 && alert_id === 1) {
+                            query_string = query_string + " UPDATE cartera_batch_products, carteras";
+                            query_string = query_string + " SET cartera_batch_products.alert_id=" + id + ",";
+                            query_string = query_string + " cartera_batch_products.quantity=" + quantity + ",";
+                            query_string = query_string + " carteras.alert_count= carteras.alert_count + 1";
+                            query_string = query_string + " WHERE cartera_batch_products.id=" + request.body.cartera_batch_products_id;
+                            query_string = query_string + " AND carteras.cartera_id=" + request.body.cartera_id;
+                        }
+                        con.query(query_string, function (err, result8, fields) {
+                            if (err) {
+                                console.log(err);
+                                return res.status(500).json({
+                                    title: 'Error',
+                                    message: err.message
+                                })
+                            } else {
+                                return res.status(200).json({
+                                    title: 'Productos utilizados exitosamente',
+                                    message: 'La productos fueron utilizados de manera satisfactoria',
+                                })
+                            }
+                        })
+                    }
+                })
+            }
+        });
     } else {
-        query_string = query_string + " UPDATE cartera_batch_products, carteras";
-        query_string = query_string + " SET cartera_batch_products.alert_id=" + id + ",";
-        query_string = query_string + " cartera_batch_products.quantity=" + quantity;
-        query_string = query_string + " carteras.alert_count= carteras.alert_count + 1";
-        query_string = query_string + " WHERE cartera_batch_products.id=" + request.body.cartera_batch_products_id;
-        query_string = query_string + " AND carteras.cartera_id=" + request.body.cartera_id;
-    }
-
-    con.query(query_string, function (err, result8, fields) {
-        if (err) {
-            console.log(err);
-            return res.status(500).json({
-                title: 'Error',
-                message: err.message
-            })
-        } else {
-            return res.status(200).json({
-                title: 'Productos utilizados exitosamente',
-                message: 'La productos fueron utilizados de manera satisfactoria',
-            })
+        let query_string = "";
+        // if (alert_id > 1) {
+        //     query_string = query_string + " UPDATE cartera_batch_products, carteras";
+        //     query_string = query_string + " SET cartera_batch_products.alert_id=" + id + ",";
+        //     query_string = query_string + " cartera_batch_products.quantity=" + quantity;
+        //     query_string = query_string + " WHERE cartera_batch_products.id=" + request.body.cartera_batch_products_id;
+        // } else 
+        if (id === 1 && alert_id !== 1) {
+            query_string = query_string + " UPDATE cartera_batch_products, carteras";
+            query_string = query_string + " SET cartera_batch_products.alert_id=" + id + ",";
+            query_string = query_string + " cartera_batch_products.quantity=" + quantity + ",";
+            query_string = query_string + " carteras.alert_count= carteras.alert_count - 1";
+            query_string = query_string + " WHERE cartera_batch_products.id=" + request.body.cartera_batch_products_id;
+            query_string = query_string + " AND carteras.cartera_id=" + request.body.cartera_id;
+        } else if (id !== 1 && alert_id !== 1) {
+            query_string = query_string + " UPDATE cartera_batch_products, carteras";
+            query_string = query_string + " SET cartera_batch_products.alert_id=" + id + ",";
+            query_string = query_string + " cartera_batch_products.quantity=" + quantity + ",";
+            query_string = query_string + " carteras.alert_count= carteras.alert_count + 0";
+            query_string = query_string + " WHERE cartera_batch_products.id=" + request.body.cartera_batch_products_id;
+            query_string = query_string + " AND carteras.cartera_id=" + request.body.cartera_id;
+        } else if (id === 1 && alert_id === 1) {
+            query_string = query_string + " UPDATE cartera_batch_products, carteras";
+            query_string = query_string + " SET cartera_batch_products.alert_id=" + id + ",";
+            query_string = query_string + " cartera_batch_products.quantity=" + quantity + ",";
+            query_string = query_string + " carteras.alert_count= carteras.alert_count + 0";
+            query_string = query_string + " WHERE cartera_batch_products.id=" + request.body.cartera_batch_products_id;
+            query_string = query_string + " AND carteras.cartera_id=" + request.body.cartera_id;
+        } else if (id !== 1 && alert_id === 1) {
+            query_string = query_string + " UPDATE cartera_batch_products, carteras";
+            query_string = query_string + " SET cartera_batch_products.alert_id=" + id + ",";
+            query_string = query_string + " cartera_batch_products.quantity=" + quantity + ",";
+            query_string = query_string + " carteras.alert_count= carteras.alert_count + 1";
+            query_string = query_string + " WHERE cartera_batch_products.id=" + request.body.cartera_batch_products_id;
+            query_string = query_string + " AND carteras.cartera_id=" + request.body.cartera_id;
         }
-    })
+        con.query(query_string, function (err, result8, fields) {
+            if (err) {
+                console.log(err);
+                return res.status(500).json({
+                    title: 'Error',
+                    message: err.message
+                })
+            } else {
+                return res.status(200).json({
+                    title: 'Productos utilizados exitosamente',
+                    message: 'La productos fueron utilizados de manera satisfactoria',
+                })
+            }
+        })
+    }
 })
 
 router.get('/get_all_cartera_info', verify_token, (request, res, next) => {
@@ -3573,6 +3676,7 @@ router.post('/insert_cartera_batch_products', verify_token, (request, res, next)
                                                             return res.status(200).json({
                                                                 title: 'Cartera ingresada exitosamente',
                                                                 message: 'La cartera fue creada de manera satisfactoria',
+                                                                cartera_batch_product_id: result2.insertId
                                                             })
                                                         }
                                                     })
@@ -3740,7 +3844,7 @@ router.get('/get_institution_cartera', verify_token, (request, res, next) => {
             })
         } else {
             let query_string2 = "";
-            query_string2 = query_string2 + " SELECT (cartera_batch_products.quantity * inventory.costo_compra) as worth, products.presentation_quantity as per_presentation, alerts.type as status, medicamentos.*, cartera_batch_products.id as cartera_batch_id, carteras.cartera_id, cartera_batch_products.quantity as in_stock from carteras";
+            query_string2 = query_string2 + " SELECT products.pum as product_pum, cartera_batch_products.alert_id as alert_id, (cartera_batch_products.quantity * inventory.costo_compra) as worth, products.presentation_quantity as per_presentation, alerts.type as status, medicamentos.*, cartera_batch_products.id as cartera_batch_id, carteras.cartera_id, cartera_batch_products.quantity as in_stock from carteras";
             query_string2 = query_string2 + " INNER JOIN cartera_batch_products ON cartera_batch_products.cartera_id = carteras.cartera_id";
             query_string2 = query_string2 + " INNER JOIN alerts ON alerts.id = cartera_batch_products.alert_id";
             query_string2 = query_string2 + " INNER JOIN batch_product ON batch_product.id = cartera_batch_products.batch_product_id";
@@ -3757,7 +3861,7 @@ router.get('/get_institution_cartera', verify_token, (request, res, next) => {
                     })
                 } else {
                     let query_string3 = "";
-                    query_string3 = query_string3 + " SELECT (cartera_batch_products.quantity * inventory.costo_compra) as worth, products.presentation_quantity as per_presentation, alerts.type as status, insumos.*, cartera_batch_products.id as cartera_batch_id, carteras.cartera_id, cartera_batch_products.quantity as in_stock from carteras";
+                    query_string3 = query_string3 + " SELECT products.pum as product_pum, cartera_batch_products.alert_id as alert_id, (cartera_batch_products.quantity * inventory.costo_compra) as worth, products.presentation_quantity as per_presentation, alerts.type as status, insumos.*, cartera_batch_products.id as cartera_batch_id, carteras.cartera_id, cartera_batch_products.quantity as in_stock from carteras";
                     query_string3 = query_string3 + " INNER JOIN cartera_batch_products ON cartera_batch_products.cartera_id = carteras.cartera_id";
                     query_string3 = query_string3 + " INNER JOIN alerts ON alerts.id = cartera_batch_products.alert_id";
                     query_string3 = query_string3 + " INNER JOIN batch_product ON batch_product.id = cartera_batch_products.batch_product_id";
@@ -3827,6 +3931,25 @@ router.get('/get_cartera_productos_list', verify_token, (request, res, next) => 
             return res.status(200).json(result)
         }
     });
+})
+
+router.get('/get_cartera_batch_product', verify_token, (request, res, next) => {
+    let query_string = "";
+    query_string = query_string + " SELECT * FROM cartera_batch_products";
+    query_string = query_string + " INNER JOIN carteras ON carteras.cartera_id = cartera_batch_products.cartera_id";
+    query_string = query_string + " WHERE batch_product_id=" + request.query.batch_product_id;
+    query_string = query_string + " AND carteras.cartera_id=" + request.query.cartera_id;
+    con.query(query_string, function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            });
+        } else {
+            return res.status(200).json(result.length > 0 ? { id: result[0].id, quantity: result[0].quantity, alert_id: result[0].alert_id } : { id: 0, quantity: 0, alert_id: 0 });
+        }
+    })
 })
 
 router.delete('/delete_cartera_productos', verify_token, (request, res, next) => {
