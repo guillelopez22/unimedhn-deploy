@@ -68,7 +68,8 @@ router.get('/login', (req, res, next) => {
                                     auth: true,
                                     first_login: true,
                                     id: encrypt(validate_user_password_result[0].id + ""),
-                                    name: validate_user_password_result[0].username
+                                    name: validate_user_password_result[0].username,
+                                    role: validate_user_password_result[0].role,
                                 });
                             } else {
                                 var token = jwt.sign({
@@ -83,7 +84,9 @@ router.get('/login', (req, res, next) => {
                                     auth: true,
                                     first_login: false,
                                     token: token,
-                                    name: validate_user_password_result[0].username
+                                    name: validate_user_password_result[0].username,
+                                    role: validate_user_password_result[0].role,
+                                    user_id: validate_user_password_result[0].id
                                 });
                             }
                         } else {
@@ -857,6 +860,74 @@ router.get('/get_doctor', verify_token, (request, res, next) => {
             })
         } else {
             return res.status(200).json(result)
+        }
+    });
+})
+
+router.get('/get_doctor_by_user', verify_token, (request, res, next) => {
+    // let query_string = "";
+    // query_string = query_string + " SELECT doctors.*, users.username, instituciones.nombre as institution_name FROM doctors";
+    // query_string = query_string + " INNER JOIN instituciones ON doctors.institution_id = instituciones.id";
+    // query_string = query_string + " INNER JOIN users ON doctors.user_id = users.id";
+    // query_string = query_string + " WHERE users.id = " + request.query.user_id;
+    let query_string = "";
+    query_string = query_string + " SELECT * FROM doctors";
+    query_string = query_string + " WHERE doctors.user_id = " + request.query.user_id;
+    con.query(query_string, function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            let query_string2 = "";
+            query_string2 = query_string2 + " SELECT instituciones.* FROM doctors";
+            query_string2 = query_string2 + " INNER JOIN instituciones ON doctors.institution_id = instituciones.id";
+            query_string2 = query_string2 + " WHERE doctors.user_id = " + request.query.user_id;
+            con.query(query_string2, function (err, result2, fields) {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err.message
+                    })
+                } else {
+                    let query_string3 = "";
+                    query_string3 = query_string3 + " SELECT * FROM users";
+                    query_string3 = query_string3 + " WHERE users.id = " + request.query.user_id;
+                    con.query(query_string3, function (err, result3, fields) {
+                        if (err) {
+                            console.log(err);
+                            return res.status(500).json({
+                                title: 'Error',
+                                message: err.message
+                            })
+                        } else {
+                            let query_string4 = "";
+                            query_string4 = query_string4 + " SELECT consultas.* FROM doctors";
+                            query_string4 = query_string4 + " INNER JOIN consultas ON consultas.doctor_id = doctors.doctor_id";
+                            query_string4 = query_string4 + " WHERE doctors.user_id = " + request.query.user_id;
+                            con.query(query_string4, function (err, result4, fields) {
+                                if (err) {
+                                    console.log(err);
+                                    return res.status(500).json({
+                                        title: 'Error',
+                                        message: err.message
+                                    })
+                                } else {
+                                    return res.status(200).json({
+                                        doctor: result[0],
+                                        institutions: result2,
+                                        user: result3[0],
+                                        consultas: result4
+                                    })
+                                }
+                            })
+                            }
+                    })
+                }
+            })
         }
     });
 })
