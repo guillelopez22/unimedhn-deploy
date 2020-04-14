@@ -3168,10 +3168,60 @@ router.get('/get_search_batch', verify_token, (request, res, next) => {
 
 router.get('/get_consultas', verify_token, (request, res, next) => {
     let query_string = "";
-    query_string = query_string + " SELECT instituciones.nombre as institucion, CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name, CONCAT(patients.first_name, ' ', patients.last_name) as patient_name from consultas";
+    query_string = query_string + " SELECT instituciones.nombre as institucion, CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name, CONCAT(patients.first_name, ' ', patients.last_name) as patient_name,  CONCAT(patients.grado, ' ', patients.seccion) as curso from consultas";
     query_string = query_string + " INNER JOIN instituciones ON instituciones.id = consultas.institution_id";
     query_string = query_string + " INNER JOIN doctors ON doctors.doctor_id = consultas.doctor_id";
     query_string = query_string + " INNER JOIN patients ON patients.patient_id = consultas.patient_id";
+    con.query(query_string, function (err, result, fields) {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                title: 'Error',
+                message: err.message
+            })
+        } else {
+            let query_string2 = "";
+            query_string2 = query_string2 + " SELECT instituciones.* FROM consultas";
+            query_string2 = query_string2 + " INNER JOIN instituciones ON instituciones.id = consultas.institution_id";
+            con.query(query_string2, function (err, result2, fields) {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err.message
+                    })
+                } else {
+                    let query_string3 = "";
+                    query_string3 = query_string3 + " SELECT doctors.* FROM consultas";
+                    query_string3 = query_string3 + " INNER JOIN doctors ON doctors.doctor_id = consultas.doctor_id";
+                    con.query(query_string2, function (err, result3, fields) {
+                        if (err) {
+                            console.log(err);
+                            return res.status(500).json({
+                                title: 'Error',
+                                message: err.message
+                            })
+                        } else {
+                            return res.status(200).json({
+                                consultas: result,
+                                instituciones: result2,
+                                doctors: result3
+                            })
+                        }
+                    })
+                }
+            })
+        }
+    })
+})
+
+router.get('/get_consultas_by_doctor', verify_token, (request, res, next) => {
+    let query_string = "";
+    query_string = query_string + " SELECT instituciones.nombre as institucion, CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name, CONCAT(patients.first_name, ' ', patients.last_name) as patient_name,  CONCAT(patients.grado, ' ', patients.seccion) as curso from consultas";
+    query_string = query_string + " INNER JOIN instituciones ON instituciones.id = consultas.institution_id";
+    query_string = query_string + " INNER JOIN doctors ON doctors.doctor_id = consultas.doctor_id";
+    query_string = query_string + " INNER JOIN patients ON patients.patient_id = consultas.patient_id";
+    query_string = query_string + " WHERE doctors.user_id = " + request.query.doctor_id;
     con.query(query_string, function (err, result, fields) {
         if (err) {
             console.log(err);
