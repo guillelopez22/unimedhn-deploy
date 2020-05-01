@@ -1238,9 +1238,9 @@ router.delete('/delete_patient', verify_token, (request, res, next) => {
 
 router.get('/patient_list', verify_token, (request, res, next) => {
     var query_string = "";
-    query_string = query_string + " SELECT patients.*, instituciones.nombre as institution_name, instituciones.ciudad as city FROM instituciones";
-    query_string = query_string + " INNER JOIN assigned_patients ON assigned_patients.institution_id = instituciones.id";
-    query_string = query_string + " INNER JOIN patients ON assigned_patients.patient_id = assigned_patients.patient_id";
+    query_string = query_string + " SELECT patients.*, CASE WHEN assigned_patients.institution_id <> 0 THEN instituciones.nombre ELSE 'Sin Asignar' END AS institution_name, instituciones.ciudad as city FROM patients";
+    query_string = query_string + " LEFT JOIN assigned_patients ON assigned_patients.patient_id = patients.patient_id";
+    query_string = query_string + " LEFT JOIN instituciones ON instituciones.id = assigned_patients.institution_id";
     con.query(query_string, function (err, result, fields) {
         if (err) {
             console.log(err);
