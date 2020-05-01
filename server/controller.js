@@ -1091,7 +1091,7 @@ router.get('/get_doctors', verify_token, (request, res, next) => {
 
 router.get('/doctors_institution_list', verify_token, (request, res, next) => {
     let query_string = "";
-    query_string = query_string + " SELECT doctors.*, users.username FROM doctors";
+    query_string = query_string + " SELECT doctors.*, assigned_doctors.*, users.username FROM doctors";
     query_string = query_string + " INNER JOIN users ON doctors.user_id = users.id";
     query_string = query_string + " INNER JOIN assigned_doctors ON assigned_doctors.doctor_id = doctors.doctor_id";
     query_string = query_string + " WHERE assigned_doctors.institution_id = " + request.query.institution_id;
@@ -1102,6 +1102,13 @@ router.get('/doctors_institution_list', verify_token, (request, res, next) => {
                 message: err.message
             })
         } else {
+            result.forEach(el => {
+                if (el.active === 1) {
+                    el.status = 'Activo';
+                } else {
+                    el.status = 'Inactivo';
+                }
+            })
             return res.status(200).json(result)
         }
     });
@@ -1166,7 +1173,8 @@ router.post('/insert_patient', verify_token, (request, res, next) => {
         } else {
             return res.status(200).json({
                 title: 'Alumno ingresado exitosamente',
-                message: 'El alumno fue creado de manera satisfactoria'
+                message: 'El alumno fue creado de manera satisfactoria',
+                patient_id: result.insertId
             })
         }
     });
@@ -1264,7 +1272,7 @@ router.get('/get_all_patients', verify_token, (request, res, next) => {
 
 router.get('/patients_institution_list', verify_token, (request, res, next) => {
     var query_string = "";
-    query_string = query_string + " SELECT patients.*, instituciones.nombre as institution_name FROM instituciones";
+    query_string = query_string + " SELECT patients.*, assigned_patients.*, instituciones.nombre as institution_name FROM instituciones";
     query_string = query_string + " INNER JOIN assigned_patients on assigned_patients.institution_id = instituciones.id";
     query_string = query_string + " INNER JOIN patients on patients.patient_id = assigned_patients.patient_id";
     query_string = query_string + " WHERE instituciones.id = " + request.query.institution_id;
@@ -1276,6 +1284,13 @@ router.get('/patients_institution_list', verify_token, (request, res, next) => {
                 message: err.message
             })
         } else {
+            result.forEach(el => {
+                if (el.active === 1 ) {
+                    el.status = 'Activo';
+                } else {
+                    el.status = 'Inactivo';
+                }
+            })
             return res.status(200).json(result);
         }
     });
