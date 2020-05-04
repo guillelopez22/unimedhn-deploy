@@ -830,63 +830,139 @@ router.post('/insert_doctor', verify_token, (request, res, next) => {
                 message: err.message
             })
         } else {
-            var foto = "";
-            if (request.body.foto !== 'null') {
-                foto = request.body.foto;
-            }
-            var records = [
-                [
-                    result[0].insertId,
-                    request.body.first_name,
-                    request.body.last_name,
-                    request.body.phone,
-                    request.body.email,
-                    request.body.address,
-                    request.body.id_card,
-                    request.body.id_college,
-                    request.body.id_rtn,
-                    JSON.stringify(request.body.academic_information),
-                    JSON.stringify(request.body.background_information),
-                    request.body.ciudad,
-                    JSON.stringify(request.body.working_hours),
-                    foto
-                ],
-            ];
-            var query_string2 = "";
-            query_string2 = query_string2 + " INSERT INTO doctors";
-            query_string2 = query_string2 + " (user_id,";
-            query_string2 = query_string2 + " first_name,";
-            query_string2 = query_string2 + " last_name,";
-            query_string2 = query_string2 + " phone,";
-            query_string2 = query_string2 + " email,";
-            query_string2 = query_string2 + " address,";
-            query_string2 = query_string2 + " id_card,";
-            query_string2 = query_string2 + " id_college,";
-            query_string2 = query_string2 + " id_rtn,";
-            query_string2 = query_string2 + " academic_information,";
-            query_string2 = query_string2 + " background_information,";
-            query_string2 = query_string2 + " ciudad,";
-            query_string2 = query_string2 + " working_hours,";
-            query_string2 = query_string2 + " foto)";
-            query_string2 = query_string2 + " VALUES ?";
-            console.log(query_string2);
-            console.log(records);
-
-            con.query(query_string2, [records], function (err2, result2, fields2) {
-                if (err2) {
-                    console.log(err2);
-                    return res.status(500).json({
-                        title: 'Error',
-                        message: err2.message
-                    })
-                } else {
-                    return res.status(200).json({
-                        title: 'Médico ingresado exitosamente',
-                        message: 'El médico fue creado de manera satisfactoria',
-                        doctor_id: result2.insertId
-                    })
+            if (request.body.id_rtn !== 'null' || request.body.id_rtn !== undefined) {
+                let query_string3 = "";
+                query_string3 = query_string3 + " SELECT * from doctors";
+                query_string3 = query_string3 + " WHERE id_rtn LIKE '%" + request.body.id_rtn + "%'";
+                con.query(query_string3, function (err, result3, fields) {
+                    if (err) {
+                        console.log(err);
+                        return res.status(500).json({
+                            title: 'Error',
+                            message: err.message
+                        })
+                    } else {
+                        if (result3.length > 0) {
+                            return res.status(500).json({
+                                title: 'Error',
+                                message: 'El RTN ha sido asignado a otro médico.'
+                            })
+                        } else {
+                            let foto = "";
+                            if (request.body.foto !== 'null') {
+                                foto = request.body.foto;
+                            }
+                            let records = [
+                                [
+                                    result[0].insertId,
+                                    request.body.first_name,
+                                    request.body.last_name,
+                                    request.body.phone,
+                                    request.body.email,
+                                    request.body.address,
+                                    request.body.id_card,
+                                    request.body.id_college,
+                                    request.body.id_rtn,
+                                    JSON.stringify(request.body.academic_information),
+                                    JSON.stringify(request.body.background_information),
+                                    request.body.ciudad,
+                                    JSON.stringify(request.body.working_hours),
+                                    foto
+                                ],
+                            ];
+                            let query_string2 = "";
+                            query_string2 = query_string2 + " INSERT INTO doctors";
+                            query_string2 = query_string2 + " (user_id,";
+                            query_string2 = query_string2 + " first_name,";
+                            query_string2 = query_string2 + " last_name,";
+                            query_string2 = query_string2 + " phone,";
+                            query_string2 = query_string2 + " email,";
+                            query_string2 = query_string2 + " address,";
+                            query_string2 = query_string2 + " id_card,";
+                            query_string2 = query_string2 + " id_college,";
+                            query_string2 = query_string2 + " id_rtn,";
+                            query_string2 = query_string2 + " academic_information,";
+                            query_string2 = query_string2 + " background_information,";
+                            query_string2 = query_string2 + " ciudad,";
+                            query_string2 = query_string2 + " working_hours,";
+                            query_string2 = query_string2 + " foto)";
+                            query_string2 = query_string2 + " VALUES ?";
+    
+                            con.query(query_string2, [records], function (err2, result2, fields2) {
+                                if (err2) {
+                                    console.log(err2);
+                                    return res.status(500).json({
+                                        title: 'Error',
+                                        message: err2.message
+                                    })
+                                } else {
+                                    return res.status(200).json({
+                                        title: 'Médico ingresado exitosamente',
+                                        message: 'El médico fue creado de manera satisfactoria',
+                                        doctor_id: result2.insertId
+                                    })
+                                }
+                            });
+                        }
+                    }
+                })
+            } else {
+                let foto = "";
+                if (request.body.foto !== 'null') {
+                    foto = request.body.foto;
                 }
-            });
+                let records = [
+                    [
+                        result[0].insertId,
+                        request.body.first_name,
+                        request.body.last_name,
+                        request.body.phone,
+                        request.body.email,
+                        request.body.address,
+                        request.body.id_card,
+                        request.body.id_college,
+                        request.body.id_rtn,
+                        JSON.stringify(request.body.academic_information),
+                        JSON.stringify(request.body.background_information),
+                        request.body.ciudad,
+                        JSON.stringify(request.body.working_hours),
+                        foto
+                    ],
+                ];
+                let query_string2 = "";
+                query_string2 = query_string2 + " INSERT INTO doctors";
+                query_string2 = query_string2 + " (user_id,";
+                query_string2 = query_string2 + " first_name,";
+                query_string2 = query_string2 + " last_name,";
+                query_string2 = query_string2 + " phone,";
+                query_string2 = query_string2 + " email,";
+                query_string2 = query_string2 + " address,";
+                query_string2 = query_string2 + " id_card,";
+                query_string2 = query_string2 + " id_college,";
+                query_string2 = query_string2 + " id_rtn,";
+                query_string2 = query_string2 + " academic_information,";
+                query_string2 = query_string2 + " background_information,";
+                query_string2 = query_string2 + " ciudad,";
+                query_string2 = query_string2 + " working_hours,";
+                query_string2 = query_string2 + " foto)";
+                query_string2 = query_string2 + " VALUES ?";
+    
+                con.query(query_string2, [records], function (err2, result2, fields2) {
+                    if (err2) {
+                        console.log(err2);
+                        return res.status(500).json({
+                            title: 'Error',
+                            message: err2.message
+                        })
+                    } else {
+                        return res.status(200).json({
+                            title: 'Médico ingresado exitosamente',
+                            message: 'El médico fue creado de manera satisfactoria',
+                            doctor_id: result2.insertId
+                        })
+                    }
+                });
+            }
         }
     });
 })
@@ -1127,6 +1203,7 @@ router.post('/insert_patient', verify_token, (request, res, next) => {
             request.body.first_name,
             request.body.last_name,
             request.body.gender,
+            request.body.identidad,
             request.body.grado,
             request.body.birth_place,
             request.body.birth_date,
@@ -1137,7 +1214,7 @@ router.post('/insert_patient', verify_token, (request, res, next) => {
             request.body.address_house,
             request.body.address_city,
             request.body.address_state,
-            request.body.seccion,
+            request.body.seccion.toUpperCase(),
             JSON.stringify(request.body.emergency_contacts),
             foto
         ],
@@ -1148,6 +1225,7 @@ router.post('/insert_patient', verify_token, (request, res, next) => {
     query_string = query_string + " first_name,";
     query_string = query_string + " last_name,";
     query_string = query_string + " gender,";
+    query_string = query_string + " identidad,";
     query_string = query_string + " grado,";
     query_string = query_string + " birth_place,";
     query_string = query_string + " birth_date,";
@@ -1272,7 +1350,7 @@ router.get('/get_all_patients', verify_token, (request, res, next) => {
 
 router.get('/patients_institution_list', verify_token, (request, res, next) => {
     var query_string = "";
-    query_string = query_string + " SELECT patients.*, assigned_patients.*, instituciones.nombre as institution_name FROM instituciones";
+    query_string = query_string + " SELECT patients.*, assigned_patients.*, instituciones.nombre as institution_name, instituciones.ciudad as institution_city FROM instituciones";
     query_string = query_string + " INNER JOIN assigned_patients on assigned_patients.institution_id = instituciones.id";
     query_string = query_string + " INNER JOIN patients on patients.patient_id = assigned_patients.patient_id";
     query_string = query_string + " WHERE instituciones.id = " + request.query.institution_id;
@@ -1285,7 +1363,7 @@ router.get('/patients_institution_list', verify_token, (request, res, next) => {
             })
         } else {
             result.forEach(el => {
-                if (el.active === 1 ) {
+                if (el.active === 1) {
                     el.status = 'Activo';
                 } else {
                     el.status = 'Inactivo';
@@ -1428,7 +1506,7 @@ router.delete('/unassign_patient', verify_token, (req, res, next) => {
                         message: 'El estudiante ha sido removido de forma satisfactoria'
                     });
                 }
-            })   
+            })
         }
     });
 });
