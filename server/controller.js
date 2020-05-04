@@ -887,7 +887,7 @@ router.post('/insert_doctor', verify_token, (request, res, next) => {
                             query_string2 = query_string2 + " working_hours,";
                             query_string2 = query_string2 + " foto)";
                             query_string2 = query_string2 + " VALUES ?";
-    
+
                             con.query(query_string2, [records], function (err2, result2, fields2) {
                                 if (err2) {
                                     console.log(err2);
@@ -946,7 +946,7 @@ router.post('/insert_doctor', verify_token, (request, res, next) => {
                 query_string2 = query_string2 + " working_hours,";
                 query_string2 = query_string2 + " foto)";
                 query_string2 = query_string2 + " VALUES ?";
-    
+
                 con.query(query_string2, [records], function (err2, result2, fields2) {
                     if (err2) {
                         console.log(err2);
@@ -1191,71 +1191,157 @@ router.get('/doctors_institution_list', verify_token, (request, res, next) => {
 })
 
 router.post('/insert_patient', verify_token, (request, res, next) => {
-    let foto = "";
-    console.log(request.body);
+    if (request.body.identidad !== 'null' || request.body.identidad !== undefined) {
+        let query_string2 = "";
+        query_string2 = query_string2 + " SELECT * from patients";
+        query_string2 = query_string2 + " WHERE identidad LIKE '%" + request.body.identidad + "%'";
+        con.query(query_string2, function (err, result2, fields) {
+            if (err) {
+                console.log(err);
+                return res.status(500).json({
+                    title: 'Error',
+                    message: err.message
+                })
+            } else {
+                if (result2.length > 0) {
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: 'Ya existe un paciente con el numero de identidad ingresado'
+                    })
+                } else {
+                    let foto = "";
 
-    if (request.body.foto != 'null') {
-        foto = request.body.foto;
-    }
-    let records = [
-        [
-            request.body.tipo_paciente,
-            request.body.first_name,
-            request.body.last_name,
-            request.body.gender,
-            request.body.identidad,
-            request.body.grado,
-            request.body.birth_place,
-            request.body.birth_date,
-            request.body.address_place,
-            request.body.address_avenue,
-            request.body.address_street,
-            request.body.address_block,
-            request.body.address_house,
-            request.body.address_city,
-            request.body.address_state,
-            request.body.seccion.toUpperCase(),
-            JSON.stringify(request.body.emergency_contacts),
-            foto
-        ],
-    ];
-    let query_string = "";
-    query_string = query_string + " INSERT INTO patients";
-    query_string = query_string + " (tipo_paciente,";
-    query_string = query_string + " first_name,";
-    query_string = query_string + " last_name,";
-    query_string = query_string + " gender,";
-    query_string = query_string + " identidad,";
-    query_string = query_string + " grado,";
-    query_string = query_string + " birth_place,";
-    query_string = query_string + " birth_date,";
-    query_string = query_string + " address_place,";
-    query_string = query_string + " address_avenue,";
-    query_string = query_string + " address_street,";
-    query_string = query_string + " address_block,";
-    query_string = query_string + " address_house,";
-    query_string = query_string + " address_city,";
-    query_string = query_string + " address_state,";
-    query_string = query_string + " seccion,";
-    query_string = query_string + " emergency_contacts,";
-    query_string = query_string + " foto)";
-    query_string = query_string + " VALUES ?";
+                    if (request.body.foto != 'null') {
+                        foto = request.body.foto;
+                    }
+                    let records = [
+                        [
+                            request.body.tipo_paciente,
+                            request.body.first_name,
+                            request.body.last_name,
+                            request.body.gender,
+                            request.body.identidad,
+                            request.body.grado,
+                            request.body.birth_place,
+                            request.body.birth_date,
+                            request.body.address_place,
+                            request.body.address_avenue,
+                            request.body.address_street,
+                            request.body.address_block,
+                            request.body.address_house,
+                            request.body.address_city,
+                            request.body.address_state,
+                            request.body.seccion,
+                            JSON.stringify(request.body.emergency_contacts),
+                            foto
+                        ],
+                    ];
+                    let query_string = "";
+                    query_string = query_string + " INSERT INTO patients";
+                    query_string = query_string + " (tipo_paciente,";
+                    query_string = query_string + " first_name,";
+                    query_string = query_string + " last_name,";
+                    query_string = query_string + " gender,";
+                    query_string = query_string + " identidad,";
+                    query_string = query_string + " grado,";
+                    query_string = query_string + " birth_place,";
+                    query_string = query_string + " birth_date,";
+                    query_string = query_string + " address_place,";
+                    query_string = query_string + " address_avenue,";
+                    query_string = query_string + " address_street,";
+                    query_string = query_string + " address_block,";
+                    query_string = query_string + " address_house,";
+                    query_string = query_string + " address_city,";
+                    query_string = query_string + " address_state,";
+                    query_string = query_string + " seccion,";
+                    query_string = query_string + " emergency_contacts,";
+                    query_string = query_string + " foto)";
+                    query_string = query_string + " VALUES ?";
 
-    con.query(query_string, [records], function (err, result, fields) {
-        if (err) {
-            console.log(err);
-            return res.status(500).json({
-                title: 'Error',
-                message: err.message
-            })
-        } else {
-            return res.status(200).json({
-                title: 'Alumno ingresado exitosamente',
-                message: 'El alumno fue creado de manera satisfactoria',
-                patient_id: result.insertId
-            })
+                    con.query(query_string, [records], function (err, result, fields) {
+                        if (err) {
+                            console.log(err);
+                            return res.status(500).json({
+                                title: 'Error',
+                                message: err.message
+                            })
+                        } else {
+                            return res.status(200).json({
+                                title: 'Alumno ingresado exitosamente',
+                                message: 'El alumno fue creado de manera satisfactoria',
+                                patient_id: result.insertId
+                            })
+                        }
+                    });
+                }
+            }
+        })
+    } else {
+        let foto = "";
+
+        if (request.body.foto != 'null') {
+            foto = request.body.foto;
         }
-    });
+        let records = [
+            [
+                request.body.tipo_paciente,
+                request.body.first_name,
+                request.body.last_name,
+                request.body.gender,
+                request.body.identidad,
+                request.body.grado,
+                request.body.birth_place,
+                request.body.birth_date,
+                request.body.address_place,
+                request.body.address_avenue,
+                request.body.address_street,
+                request.body.address_block,
+                request.body.address_house,
+                request.body.address_city,
+                request.body.address_state,
+                request.body.seccion,
+                JSON.stringify(request.body.emergency_contacts),
+                foto
+            ],
+        ];
+        let query_string = "";
+        query_string = query_string + " INSERT INTO patients";
+        query_string = query_string + " (tipo_paciente,";
+        query_string = query_string + " first_name,";
+        query_string = query_string + " last_name,";
+        query_string = query_string + " gender,";
+        query_string = query_string + " identidad,";
+        query_string = query_string + " grado,";
+        query_string = query_string + " birth_place,";
+        query_string = query_string + " birth_date,";
+        query_string = query_string + " address_place,";
+        query_string = query_string + " address_avenue,";
+        query_string = query_string + " address_street,";
+        query_string = query_string + " address_block,";
+        query_string = query_string + " address_house,";
+        query_string = query_string + " address_city,";
+        query_string = query_string + " address_state,";
+        query_string = query_string + " seccion,";
+        query_string = query_string + " emergency_contacts,";
+        query_string = query_string + " foto)";
+        query_string = query_string + " VALUES ?";
+
+        con.query(query_string, [records], function (err, result, fields) {
+            if (err) {
+                console.log(err);
+                return res.status(500).json({
+                    title: 'Error',
+                    message: err.message
+                })
+            } else {
+                return res.status(200).json({
+                    title: 'Alumno ingresado exitosamente',
+                    message: 'El alumno fue creado de manera satisfactoria',
+                    patient_id: result.insertId
+                })
+            }
+        });
+    }
 })
 
 router.put('/update_patient', verify_token, (request, res, next) => {
