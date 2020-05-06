@@ -815,7 +815,7 @@ router.delete('/unassign_doctor', verify_token, (req, res, next) => {
 });
 
 router.post('/insert_doctor', verify_token, (request, res, next) => {
-    console.log(request.body, 'asdasdasd');
+    // console.log(request.body, 'asdasdasd');
 
     let query_string = "";
     query_string = query_string + " INSERT INTO users (username,password,user_email,creation_date,profile_id,active,role)";
@@ -830,10 +830,29 @@ router.post('/insert_doctor', verify_token, (request, res, next) => {
                 message: err.message
             })
         } else {
-            if (request.body.id_rtn !== 'null' || request.body.id_rtn !== undefined) {
+            if (request.body.id_rtn !== '' || request.body.id_card !== '' || request.body.id_college) {
                 let query_string3 = "";
                 query_string3 = query_string3 + " SELECT * from doctors";
-                query_string3 = query_string3 + " WHERE id_rtn LIKE '%" + request.body.id_rtn + "%'";
+                if (request.body.id_rtn !== '' && request.body.id_card === '' && request.body.id_college === '') {
+                    query_string3 = query_string3 + " WHERE id_rtn = '" + request.body.id_rtn + "'";
+                } else if (request.body.id_card !== '' && request.body.id_rtn === '' && request.body.id_college === '') {
+                    query_string3 = query_string3 + " WHERE id_card '" + request.body.id_card + "'";
+                } else if ( request.body.id_college !== '' && request.body.id_rtn === '' && request.body.id_card === '' ) {
+                    query_string3 = query_string3 + " WHERE id_college '" + request.body.id_college + "'";
+                } else if ( request.body.id_college !== '' && request.body.id_rtn !== '' && request.body.id_card === '' ) {
+                    query_string3 = query_string3 + " WHERE id_college = '" + request.body.id_college + "'";
+                    query_string3 = query_string3 + " OR id_rtn = '" + request.body.id_rtn + "'";
+                } else if ( request.body.id_college !== '' && request.body.id_rtn === '' && request.body.id_card !== '' ) {
+                    query_string3 = query_string3 + " WHERE id_college = '" + request.body.id_college + "'";
+                    query_string3 = query_string3 + " OR id_card = '" + request.body.id_card + "'";
+                } else if ( request.body.id_college === '' && request.body.id_rtn !== '' && request.body.id_card !== '' ) {
+                    query_string3 = query_string3 + " WHERE id_rtn = '" + request.body.id_rtn + "'";
+                    query_string3 = query_string3 + " OR id_card = '" + request.body.id_card + "'";
+                } else if (request.body.id_card !== '' && request.body.id_rtn !== '' && request.body.id_college !== '') {
+                    query_string3 = query_string3 + " WHERE id_rtn = '" + request.body.id_rtn + "'";
+                    query_string3 = query_string3 + " OR id_card = '" + request.body.id_card + "'";
+                    query_string3 = query_string3 + " OR id_college = '" + request.body.id_college + "'";
+                }
                 con.query(query_string3, function (err, result3, fields) {
                     if (err) {
                         console.log(err);
@@ -843,9 +862,11 @@ router.post('/insert_doctor', verify_token, (request, res, next) => {
                         })
                     } else {
                         if (result3.length > 0) {
+                            console.log(request.body.id_card, request.body.id_rtn, request.body.id_college, 'testing-------------------------------------')
+                            console.log('El RTN, No. Colegio o el Numero Identidad ha sido asignado a otro médico.');
                             return res.status(500).json({
                                 title: 'Error',
-                                message: 'El RTN ha sido asignado a otro médico.'
+                                message: 'El RTN, No. Colegio o el Numero Identidad ha sido asignado a otro médico.'
                             })
                         } else {
                             let foto = "";
