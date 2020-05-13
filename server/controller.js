@@ -10,6 +10,7 @@ const algorithm = 'aes-256-cbc';
 const key = crypto.randomBytes(32);
 const iv = crypto.randomBytes(16);
 const verify_token = require("./verify_token");
+const excel = require('exceljs')
 
 let transporter = nodemailer.createTransport({
     host: "smtp.office365.com",
@@ -837,15 +838,15 @@ router.post('/insert_doctor', verify_token, (request, res, next) => {
                     query_string3 = query_string3 + " WHERE id_rtn = '" + request.body.id_rtn + "'";
                 } else if (request.body.id_card !== '' && request.body.id_rtn === '' && request.body.id_college === '') {
                     query_string3 = query_string3 + " WHERE id_card '" + request.body.id_card + "'";
-                } else if ( request.body.id_college !== '' && request.body.id_rtn === '' && request.body.id_card === '' ) {
+                } else if (request.body.id_college !== '' && request.body.id_rtn === '' && request.body.id_card === '') {
                     query_string3 = query_string3 + " WHERE id_college '" + request.body.id_college + "'";
-                } else if ( request.body.id_college !== '' && request.body.id_rtn !== '' && request.body.id_card === '' ) {
+                } else if (request.body.id_college !== '' && request.body.id_rtn !== '' && request.body.id_card === '') {
                     query_string3 = query_string3 + " WHERE id_college = '" + request.body.id_college + "'";
                     query_string3 = query_string3 + " OR id_rtn = '" + request.body.id_rtn + "'";
-                } else if ( request.body.id_college !== '' && request.body.id_rtn === '' && request.body.id_card !== '' ) {
+                } else if (request.body.id_college !== '' && request.body.id_rtn === '' && request.body.id_card !== '') {
                     query_string3 = query_string3 + " WHERE id_college = '" + request.body.id_college + "'";
                     query_string3 = query_string3 + " OR id_card = '" + request.body.id_card + "'";
-                } else if ( request.body.id_college === '' && request.body.id_rtn !== '' && request.body.id_card !== '' ) {
+                } else if (request.body.id_college === '' && request.body.id_rtn !== '' && request.body.id_card !== '') {
                     query_string3 = query_string3 + " WHERE id_rtn = '" + request.body.id_rtn + "'";
                     query_string3 = query_string3 + " OR id_card = '" + request.body.id_card + "'";
                 } else if (request.body.id_card !== '' && request.body.id_rtn !== '' && request.body.id_college !== '') {
@@ -1210,6 +1211,200 @@ router.get('/doctors_institution_list', verify_token, (request, res, next) => {
         }
     });
 })
+
+router.post('/insert_patient_by_file', verify_token, (request, res, next) => {  
+    if (!request.files || Object.keys(request.files).length === 0) {
+        return res.status(400).json({
+            title: 'Error',
+            message: 'No se subio ningun archivo'
+        });
+    }
+    let students = [];
+    if (Array.isArray(request.files.uploads)) {
+        request.files.uploads.forEach(el => {
+            el.mv('./uploads/' + el.name, function (err) {
+                if (err) {
+                    return res.status(500).json({
+                        title: 'Error',
+                        message: err.message
+                    });
+                }
+                console.log('File uploaded!');
+            });
+            readFile(el.name, students, request.body.institution_id);
+            return res.status(200).json({
+                title: 'Exito',
+                message: 'Los archivos fueron subidos con exito'
+            });
+        })
+    } else {
+        request.files.uploads.mv('./uploads/' + request.files.uploads.name, function (err) {
+            if (err) {
+                return res.status(500).json({
+                    title: 'Error',
+                    message: err.message
+                });
+            }
+            console.log('File uploaded!');
+        });
+        readFile(request.files.uploads.name, students, request.body.institution_id);
+        return res.status(200).json({
+            title: 'Exito',
+            message: 'El archivo fue subido con exito'
+        });
+    }
+
+})
+function readFile(file, students, institution_id) {
+    try {
+        let workbook = new excel.Workbook();
+        workbook.xlsx.readFile('./uploads/' + file).then(function () {
+            let primerNombre = '';
+            let apellido = '';
+            let grado = '';
+            let seccion = '';
+            ws = workbook.getWorksheet("Sheet1")
+            if (ws.getCell('A1').value !== 'Primer Nombre' || ws.getCell('B1').value !== 'Apellido' || ws.getCell('C1').value !== 'Grado' || ws.getCell('D1').value !== 'Seccion') {
+                return;
+            } else {
+                ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+                    row.eachCell((cell, colNumber) => {
+                         if (rowNumber !== 1) {
+                            if (colNumber === 1) {
+                                if (cell.value === '' || cell.value === undefined || cell.value === null) {
+                                    // return res.status(500).json({
+                                    //     title: 'Error',
+                                    //     message: 'Ningun dato puede ir vacio'
+                                    // })
+                                    return;
+                                } else {
+                                    primerNombre = cell.value;
+                                }
+                            } else if (colNumber === 2) {
+                                if (cell.value === '' || cell.value === undefined || cell.value === null) {
+                                    // return res.status(500).json({
+                                    //     title: 'Error',
+                                    //     message: 'Ningun dato puede ir vacio'
+                                    // })
+                                    return;
+                                } else {
+                                    apellido = cell.value;
+                                }
+                            } else if (colNumber === 3) {
+                                if (cell.value === '' || cell.value === undefined || cell.value === null) {
+                                    // return res.status(500).json({
+                                    //     title: 'Error',
+                                    //     message: 'Ningun dato puede ir vacio'
+                                    // })
+                                    return;
+                                } else {
+                                    grado = cell.value;
+                                }
+                            } else if (colNumber === 4) {
+                                if (cell.value === '' || cell.value === undefined || cell.value === null) {
+                                    // return res.status(500).json({
+                                    //     title: 'Error',
+                                    //     message: 'Ningun dato puede ir vacio'
+                                    // })
+                                    return;
+                                } else {
+                                    seccion = cell.value;
+                                }
+                            }
+                        }
+                    })
+                    if (rowNumber !== 1) {
+                        students.push({
+                            primerNombre,
+                            apellido,
+                            grado,
+                            seccion
+                        })
+                    }
+                })
+            }
+            students.forEach(student => {
+                let records = [
+                    [
+                        'Alumno',
+                        student.primerNombre.charAt(0).toUpperCase() + student.primerNombre.slice(1),
+                        student.apellido.charAt(0).toUpperCase() + student.apellido.slice(1),
+                        '',
+                        '',
+                        student.grado,
+                        '',
+                        '',
+                        '',
+                        '',
+                        '',
+                        '',
+                        '',
+                        '',
+                        '',
+                        student.seccion.toUpperCase(),
+                        '[]',
+                        null
+                    ],
+                ];
+                let query_string = "";
+                query_string = query_string + " INSERT INTO patients";
+                query_string = query_string + " (tipo_paciente,";
+                query_string = query_string + " first_name,";
+                query_string = query_string + " last_name,";
+                query_string = query_string + " gender,";
+                query_string = query_string + " identidad,";
+                query_string = query_string + " grado,";
+                query_string = query_string + " birth_place,";
+                query_string = query_string + " birth_date,";
+                query_string = query_string + " address_place,";
+                query_string = query_string + " address_avenue,";
+                query_string = query_string + " address_street,";
+                query_string = query_string + " address_block,";
+                query_string = query_string + " address_house,";
+                query_string = query_string + " address_city,";
+                query_string = query_string + " address_state,";
+                query_string = query_string + " seccion,";
+                query_string = query_string + " emergency_contacts,";
+                query_string = query_string + " foto)";
+                query_string = query_string + " VALUES ?";
+
+                con.query(query_string, [records], function (err, result, fields) {
+                    console.log(result);
+                    
+                    if (err) {
+                        console.log(err);
+                        return;
+                    } else {
+                        let records = [
+                            [
+                                institution_id,
+                                result.insertId,
+                            ],
+                        ];
+                        let query_string2 = "";
+                        query_string2 = query_string2 + " INSERT INTO assigned_patients";
+                        query_string2 = query_string2 + " (institution_id,";
+                        query_string2 = query_string2 + " patient_id)";
+                        query_string2 = query_string2 + " VALUES ?";
+                    
+                        con.query(query_string2, [records], function (err, result, fields) {
+                            if (err) {
+                                console.log(err);
+                            }
+                        })
+                    }
+                });
+            })
+        });
+    } catch (error) {
+        console.log(error);
+        
+        // return res.status(500).json({
+        //     title: 'Error',
+        //     message: err.message
+        // })v
+    }
+}
 
 router.post('/insert_patient', verify_token, (request, res, next) => {
     if (request.body.identidad !== 'null' || request.body.identidad !== undefined) {
